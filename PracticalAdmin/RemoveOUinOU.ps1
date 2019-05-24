@@ -4,7 +4,7 @@
 $baseOU = '<OU>'
 $targetOU = '<Name>'
 
-$computerOUs = Get-ADOrganizationalUnit -Filter * -SearchBase $FSKOU | Where-Object DistinguishedName -Like "OU=$targetOU,OU=*" | Select-Object -ExpandProperty DistinguishedName
+$computerOUs = Get-ADOrganizationalUnit -Filter * -SearchBase $baseOU | Where-Object DistinguishedName -Like "OU=$targetOU,OU=*" | Select-Object -ExpandProperty DistinguishedName
 
 foreach ($computerOU in $computerOUs) {
     Set-ADObject -Identity $computerOU -ProtectedFromAccidentalDeletion $false
