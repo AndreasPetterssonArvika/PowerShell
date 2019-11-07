@@ -1,7 +1,7 @@
 ﻿#Creates a sub-OU in each of the OU:s in the selected LDAP Path
 
 
-#$session = New-PSSession -ComputerName helena -Credential Get-Credential
+#$session = New-PSSession -ComputerName <DomainControllerName> -Credential Get-Credential
 #Invoke-Command -Session $session -ScriptBlock { Import-Module ActiveDirectory }
 #Import-PSSession -Session $session -Module ActiveDirectory
 
