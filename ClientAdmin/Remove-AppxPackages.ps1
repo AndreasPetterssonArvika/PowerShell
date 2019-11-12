@@ -1,7 +1,12 @@
-﻿# A skeleton script that removes provisioned app packages that installs when a new user logs on to the computer
+﻿# Removes a number of provisioned packages that installs when new users log on to the computer
+# Currently not parameterized. Awaits the possibility of signing the code
 
-ForEach ($package in Get-Content '<path to package list>')
+# This file should contain one or more strings describing packages, one per row.
+# Package names can have wildcards
+$packageFile = '<path to file containing packages>'
+
+ForEach ($package in Get-Content $packageFile)
 {
-    # Ta bort paketet från datorn
-    Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "$package*" } | Remove-AppProvisionedPackage -Online
+    # Remove the provisioned package from the computer
+    Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "$package" } | Remove-AppProvisionedPackage -Online
 }
