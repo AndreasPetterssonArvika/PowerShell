@@ -3,6 +3,18 @@
 # Prevent running the entire script by mistake
 BREAK
 
+# Check if LAPS is installed on this computer
+# See LAPS Detailed Technical Specification of Operational Procedures for file path info
+$LAPSDLL =  "$env:ProgramFiles\LAPS\AdmPwd.Utils.dll"
+if( -Not (test-path $LAPSDLL)) {
+    #Not installed, quit script
+    echo 'LAPS doesnt seem to be installed on this computer'
+    echo "File $LAPSDLL is missing"
+    BREAK
+} else {
+    echo 'LAPS seems to be installed, starting configuration.'
+}
+
 # General variables
 $TargetServer = 'DC01'
 $TargetServer = "$env:COMPUTERNAME"
