@@ -16,8 +16,8 @@ if( -Not (test-path $LAPSDLL)) {
 }
 
 # General variables
-$TargetServer = 'DC01'
 $TargetServer = "$env:COMPUTERNAME"
+$DomainController = 'DC01'
 $LAPSShareFolderLocation = 'C:\'
 $LAPSShareFolderName = 'LAPS'
 $LAPSShareFolderPath = "$LAPSShareFolderLocation$LAPSShareFolderName"
@@ -85,7 +85,7 @@ $LAPSGroupDescription = 'LAPS Users'
 $LAPSGroupPath = 'OU=Security Groups,OU=Internal IT,OU=ViaMonstra,DC=corp,DC=viamonstra,DC=com'
 
 # Create LAPS group and add user
-New-ADGroup -Description:$LAPSGroupDescription -GroupCategory:"Security" -GroupScope:"Global" -Name:$LAPSGroupName -Path:$LAPSGroupPath -SamAccountName:$LAPSGroupName -Server:$TargetServer
+New-ADGroup -Description:$LAPSGroupDescription -GroupCategory:"Security" -GroupScope:"Global" -Name:$LAPSGroupName -Path:$LAPSGroupPath -SamAccountName:$LAPSGroupName -Server:$DomainController
 Add-ADGroupMember -Identity $LAPSGroupName -Members 'admminy'
 
 # OU with managed computers
