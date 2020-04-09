@@ -1,4 +1,6 @@
-﻿#Before running this script the appropriate version of LAPS should be installed on the server
+﻿# This script is used for installing and configuring LAPS including the UI on a Domain Controller
+
+#Before running this script the appropriate version of LAPS should be installed on the server
 
 # Prevent running the entire script by mistake
 BREAK
@@ -17,7 +19,7 @@ if( -Not (test-path $LAPSDLL)) {
 
 # General variables
 $TargetServer = "$env:COMPUTERNAME"
-$DomainController = 'DC01'
+$DomainController = $TargetServer
 $LAPSShareFolderLocation = 'C:\'
 $LAPSShareFolderName = 'LAPS'
 $LAPSShareFolderPath = "$LAPSShareFolderLocation$LAPSShareFolderName"
