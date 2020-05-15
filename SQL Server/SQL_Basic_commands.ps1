@@ -1,7 +1,8 @@
 # Basic commands for SQL Server using PowerShell
+# # https://www.red-gate.com/simple-talk/sysadmin/powershell/introduction-to-powershell-with-sql-server-using-invoke-sqlcmd/
 BREAK
 
-$server = 'IT4985\SQLEXPRESS'
+$server = '<server>\<serverinstance>'
 
 # Create a new database
 $myDatabase = 'tutorial'
