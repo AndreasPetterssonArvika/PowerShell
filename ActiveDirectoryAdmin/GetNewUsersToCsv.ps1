@@ -6,7 +6,9 @@
 #
 # Users are sorted by creation date
 
+$exportName = "ADMIN"
 $exportTime = Get-Date -Format "yyyyMMdd_HHmm"
+$exportFile = $exportName + '_' + $exportTime
 $DateCutOff=(Get-Date).AddDays(-30)
 Get-ADUser -Filter * -Property givenName,SN,whenCreated,personNummer,mail,title | Where-Object {$_.whenCreated -gt $datecutoff `
                                                                                 -and $_.title -ne 'Elev' `
@@ -14,4 +16,4 @@ Get-ADUser -Filter * -Property givenName,SN,whenCreated,personNummer,mail,title 
                                                                                 -and $_.mail -match "[A-Za-z0-9._%+-]+[A-Za-z0-9.-]+\.[A-Za-z]"} | `
                                                                                 Select-Object givenName,SN,Name,personNummer,mail,whenCreated | `
                                                                                 Sort-Object whenCreated | `
-                                                                                Export-Csv -Path "C:\temp\users_$exportTime.csv" -NoTypeInformation -Delimiter ';' -Encoding UTF8
+                                                                                Export-Csv -Path "C:\temp\$exportFile.csv" -NoTypeInformation -Delimiter ';' -Encoding UTF8
