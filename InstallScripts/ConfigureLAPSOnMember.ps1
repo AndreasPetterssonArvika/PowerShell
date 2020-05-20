@@ -17,7 +17,6 @@ if( -Not (test-path $LAPSDLL)) {
 }
 
 # General variables
-$TargetServer = "$env:COMPUTERNAME"
 $DomainController = 'DC01'
 $LAPSShareFolderLocation = 'C:\'
 $LAPSShareFolderName = 'LAPS'
