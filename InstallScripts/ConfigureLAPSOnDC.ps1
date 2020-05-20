@@ -8,11 +8,11 @@ BREAK
 $LAPSDLL =  "$env:ProgramFiles\LAPS\AdmPwd.Utils.dll"
 if( -Not (test-path $LAPSDLL)) {
     #Not installed, quit script
-    echo 'LAPS doesnt seem to be installed on this computer'
-    echo "File $LAPSDLL is missing"
+    Write-Output 'LAPS doesnt seem to be installed on this computer'
+    Write-Output "File $LAPSDLL is missing"
     BREAK
 } else {
-    echo 'LAPS seems to be installed, starting configuration.'
+    Write-Output 'LAPS seems to be installed, starting configuration.'
 }
 
 # General variables
