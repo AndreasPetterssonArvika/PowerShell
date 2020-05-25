@@ -34,7 +34,13 @@ Write-Host ($myNames | Format-Table | Out-String)
 $dropTable = "DROP TABLE $tableName"
 Invoke-Sqlcmd -server $server -Database $myDatabase -Query $dropTable
 
-# Remove database
-# This reports database currently in use. Probably something simple.
+# Remove database.
+# Without the first two commands the third command reports database in use.
+# Source for solution:
+# https://stackoverflow.com/questions/7469130/cannot-drop-database-because-it-is-currently-in-use
+$useMaster = "use master"
+Invoke-Sqlcmd -server $server -Query $useMaster
+$setSingleUser = "ALTER DATABASE $myDatabase SET SINGLE_USER WITH ROLLBACK IMMEDIATE"
+Invoke-Sqlcmd -server $server -Query $setSingleUser
 $dropDatabase = "DROP DATABASE $myDatabase"
 Invoke-Sqlcmd -server $server -Query $dropDatabase
