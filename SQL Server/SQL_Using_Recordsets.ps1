@@ -2,8 +2,7 @@
 # https://devblogs.microsoft.com/scripting/how-can-i-use-windows-powershell-to-pull-records-from-a-microsoft-access-database/
 BREAK
 
-#$server = '<server>\<serverinstance>'
-$server = 'IT4985\SQLEXPRESS'
+$server = '<server>\<serverinstance>'
 
 # Create a new database
 $myDatabase = 'powershell'
