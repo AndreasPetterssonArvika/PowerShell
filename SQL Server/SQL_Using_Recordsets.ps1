@@ -1,7 +1,9 @@
 # Use SQL Server Recordsets in PowerShell
 # https://devblogs.microsoft.com/scripting/how-can-i-use-windows-powershell-to-pull-records-from-a-microsoft-access-database/
+BREAK
 
-$server = '<server>\<serverinstance>'
+#$server = '<server>\<serverinstance>'
+$server = 'IT4985\SQLEXPRESS'
 
 # Create a new database
 $myDatabase = 'powershell'
@@ -36,6 +38,7 @@ Invoke-Sqlcmd -server $server -Database $myDatabase -Query $addName
 # ===================================================================
 
 # Open a recordset and list data from the table, connecting via a System DSN
+# The DSN used is a 64-bit System DSN with the "SQL Server" driver
 $dsnName = 'powershell'
 $conn = New-Object System.Data.Odbc.OdbcConnection
 $conn.ConnectionString = "DSN=$dsnName"
@@ -61,7 +64,13 @@ $conn.Close()
 $dropTable = "DROP TABLE $tableName"
 Invoke-Sqlcmd -server $server -Database $myDatabase -Query $dropTable
 
-# Remove database
-# This reports database currently in use. Probably something simple.
+# Remove database.
+# Without the first two commands the third command reports database in use.
+# Source for solution:
+# https://stackoverflow.com/questions/7469130/cannot-drop-database-because-it-is-currently-in-use
+$useMaster = "use master"
+Invoke-Sqlcmd -server $server -Query $useMaster
+$setSingleUser = "ALTER DATABASE $myDatabase SET SINGLE_USER WITH ROLLBACK IMMEDIATE"
+Invoke-Sqlcmd -server $server -Query $setSingleUser
 $dropDatabase = "DROP DATABASE $myDatabase"
 Invoke-Sqlcmd -server $server -Query $dropDatabase
