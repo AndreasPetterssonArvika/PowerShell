@@ -11,7 +11,7 @@ $exportPath = '<path>'
 $exportDomain = '<domain>'
 
 
-$exportName = "MIMDiff_$exportDomain_Users"
+$exportName = "MIMDiff_" + $exportDomain + "_Users"
 $exportTime = Get-Date -Format "yyyyMMdd_HHmm"
 $exportFile = $exportName + '_' + $exportTime
 Get-ADUser -Filter * -Property givenName,SN,whenCreated,mail,title,personNummer,canonicalName | Where-Object {$_.personNummer -match "[0-9][0-9][0-9][0-9][0-9][0-9]*" `
@@ -20,7 +20,7 @@ Get-ADUser -Filter * -Property givenName,SN,whenCreated,mail,title,personNummer,
                                                                                 Select-Object givenName,SN,whenCreated,mail,title,personNummer,canonicalName | `
                                                                                 Export-Csv -Path "$exportPath\$exportFile.csv" -NoTypeInformation -Delimiter ';' -Encoding UTF8
 
-$exportName = "MIMDiff_$exportDomain_Groups"
+$exportName = "MIMDiff_" + $exportDomain + "_Groups"
 $exportTime = Get-Date -Format "yyyyMMdd_HHmm"
 $exportFile = $exportName + '_' + $exportTime
 Get-ADGroup -Filter * -Properties cn,mail,canonicalName | Select-Object cn,mail,canonicalName | `
