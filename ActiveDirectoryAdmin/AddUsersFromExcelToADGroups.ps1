@@ -9,10 +9,7 @@ $worksheets = @('70','71','72','80','81','82','90','91','92')
 ForEach ( $worksheet in $worksheets) {
     $groupName = "GRMinnebergsskolanPersonal$worksheet"
     $group = Get-ADGroup -Identity $groupName
-    #$group
     $userList = Import-Excel -Path $workbook -WorksheetName $worksheet -StartColumn 1 -EndColumn 1 -NoHeader
     $mailAddresses = $userList.P1
-    #foreach ($mail in $mailAddresses) { $mail }
-    #foreach ($mail in $mailAddresses) { Get-ADUser -LDAPFilter "(mail=$mail)" }
     foreach ($mail in $mailAddresses) { Get-ADUser -LDAPFilter "(mail=$mail)" | Add-ADPrincipalGroupMembership -MemberOf $group }
 }
