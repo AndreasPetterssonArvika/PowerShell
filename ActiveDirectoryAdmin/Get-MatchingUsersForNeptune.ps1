@@ -10,8 +10,8 @@ if ( $psISE ) {
     $basePath = $PSScriptRoot
 }
 
-#$basePath = <manual path>    # Sätt om det ska vara manuell sökväg, lämna utkommenterad annars.
-$excelWorkbook = "$basePath\all_users Neptune 210830 Kopia.xlsx"
+#$basePath = 'manuell sökväg'    # Sätt om det ska vara manuell sökväg, lämna utkommenterad annars.
+$excelWorkbook = "$basePath\<namn på Excelbok>"
 $excelWorksheet = "all_users"
 
 $neptuneUsers = Import-Excel -Path $excelWorkbook -WorksheetName $excelWorksheet
@@ -26,20 +26,39 @@ $wellFormedUsers = $neptuneUsers | Where-Object { $_.username -match $wellFormed
 
 $now = Get-Date -UFormat "%Y%m%d%H%M"
 
-$exportSheetWellFormed = "pWellFormed_$now"
+$exportSheetWellFormedMatched = "pWellFormedMatched_$now"
+$exportSheetWellFormedMisMatched = "pWellFormedMisMatched_$now"
+
+$mismatchedMail = ''
 
 foreach ( $wellFormedUser in $wellFormedUsers ) {
     $curMail = "$wellFormedUser@arvika.se"
     $ldapFilter = "(mail=$wellFormedUser@arvika.se)"
-    Get-ADUser -LDAPFilter $ldapFilter -Properties $attributes | Select-Object -Property givenName,SN,mail,sAMAccountName | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetWellFormed -Append
+    $curUser = Get-ADUser -LDAPFilter $ldapFilter -Properties $attributes
+    if ( $curUser.userPrincipalname -eq $curUser.mail ) {
+        # UPN och mail matchar
+        $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetWellFormedMatched -Append
+    } else {
+        # UPN och mail matchar inte
+        $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetWellFormedMisMatched -Append
+    }
 }
 
 # Slå upp de som inte matchar och lägg in i Excelbladet
 $badUserNames = $neptuneUsers | Where-Object { $_.username -notmatch $wellFormedUsernameRegex } | Select-Object -ExpandProperty username
 
-$exportSheetBadName = "pBadName_$now"
+$exportSheetBadNameMatched = "pBadNameMatched_$now"
+$exportSheetBadNameMisMatched = "pBadNameMisMatched_$now"
 
 foreach ( $badUserName in $badUserNames ) {
     $ldapFilter = "(sAMAccountName=$badUserName)"
-    Get-ADUser -LDAPFilter $ldapFilter -Properties $attributes | Select-Object -Property givenName,SN,mail,sAMAccountName | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetBadName -Append
+    #Get-ADUser -LDAPFilter $ldapFilter -Properties $attributes | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetBadName -Append
+    $curUser = Get-ADUser -LDAPFilter $ldapFilter -Properties $attributes
+    if ( $curUser.userPrincipalname -eq $curUser.mail ) {
+        # UPN och mail matchar
+        $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetBadNameMatched -Append
+    } else {
+        # UPN och mail matchar inte
+        $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetBadNameMisMatched -Append
+    }
 }
