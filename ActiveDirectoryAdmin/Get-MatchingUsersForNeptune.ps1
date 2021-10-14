@@ -1,8 +1,9 @@
 ﻿# Skriptet matchar användare från Neptune mot användare i Active Directory
 # Indata är en Excelbok som förutsätts ha bladet "all_users"
 # Kolumnen som innehåller användanamnet från Neptune förutsätts ha rubriken username
-# Skriptet exporterar en ny Excelbok med två blad där det ena innehåller användarnamnen
-# som matchar namnstandard för Active Directory
+# Skriptet jämför de uppslagna användarnamnen mot formen på ett välformat användarnamn,
+# slår upp användarna och kontrollerar om deras userPrincipalname matchar attributet mail.
+# Alla hittade användare skrivs till nya blad (upp till fyra) i Excelboken.
 
 if ( $psISE ) {
     $basePath = Split-Path $psISE.CurrentFile.FullPath
@@ -10,8 +11,8 @@ if ( $psISE ) {
     $basePath = $PSScriptRoot
 }
 
-#$basePath = 'manuell sökväg'    # Sätt om det ska vara manuell sökväg, lämna utkommenterad annars.
-$excelWorkbook = "$basePath\<namn på Excelbok>"
+#$basePath = '<manuell sökväg>'    # Sätt om det ska vara manuell sökväg, lämna utkommenterad annars.
+$excelWorkbook = "$basePath\<Excelboksnamn>"
 $excelWorksheet = "all_users"
 
 $neptuneUsers = Import-Excel -Path $excelWorkbook -WorksheetName $excelWorksheet
@@ -29,11 +30,9 @@ $now = Get-Date -UFormat "%Y%m%d%H%M"
 $exportSheetWellFormedMatched = "pWellFormedMatched_$now"
 $exportSheetWellFormedMisMatched = "pWellFormedMisMatched_$now"
 
-$mismatchedMail = ''
-
 foreach ( $wellFormedUser in $wellFormedUsers ) {
     $curMail = "$wellFormedUser@arvika.se"
-    $ldapFilter = "(mail=$wellFormedUser@arvika.se)"
+    $ldapFilter = "(userPrincipalname=$wellFormedUser@arvika.se)"
     $curUser = Get-ADUser -LDAPFilter $ldapFilter -Properties $attributes
     if ( $curUser.userPrincipalname -eq $curUser.mail ) {
         # UPN och mail matchar
