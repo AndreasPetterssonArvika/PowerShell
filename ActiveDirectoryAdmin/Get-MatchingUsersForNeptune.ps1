@@ -17,6 +17,9 @@ $excelWorksheet = "all_users"
 
 $neptuneUsers = Import-Excel -Path $excelWorkbook -WorksheetName $excelWorksheet
 
+$notFoundInActiveDirectory = @{}
+$notFoundKey = 'NotFound'
+
 # Slå upp de som matchar namnstandard och lägg in i excelbladet
 
 $wellFormedUsernameRegex = '^[a-z-]+[.]{1}[a-zA-Z0-9.-]+$'
@@ -27,37 +30,56 @@ $wellFormedUsers = $neptuneUsers | Where-Object { $_.username -match $wellFormed
 
 $now = Get-Date -UFormat "%Y%m%d%H%M"
 
-$exportSheetWellFormedMatched = "pWellFormedMatched_$now"
-$exportSheetWellFormedMisMatched = "pWellFormedMisMatched_$now"
+$exportSheetWellFormedMatched = "WellFormedMatched_$now"
+$exportSheetWellFormedMisMatch = "WellFormedMisMatch_$now"
 
 foreach ( $wellFormedUser in $wellFormedUsers ) {
     $curMail = "$wellFormedUser@arvika.se"
     $ldapFilter = "(userPrincipalname=$wellFormedUser@arvika.se)"
     $curUser = Get-ADUser -LDAPFilter $ldapFilter -Properties $attributes
-    if ( $curUser.userPrincipalname -eq $curUser.mail ) {
-        # UPN och mail matchar
-        $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetWellFormedMatched -Append
+    $numUser = $curUser | measure | Select-Object -ExpandProperty count
+    if ( $numUser -gt 0 ) {
+        if ( $curUser.userPrincipalname -eq $curUser.mail ) {
+            # UPN och mail matchar
+            $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetWellFormedMatched -Append
+        } else {
+            # UPN och mail matchar inte
+            $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetWellFormedMisMatch -Append
+        }
     } else {
-        # UPN och mail matchar inte
-        $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetWellFormedMisMatched -Append
+        # Lägg till ej hittat användarnamn
+        $notFoundInActiveDirectory.Add($wellFormedUser,$notFoundKey)
     }
 }
 
 # Slå upp de som inte matchar och lägg in i Excelbladet
 $badUserNames = $neptuneUsers | Where-Object { $_.username -notmatch $wellFormedUsernameRegex } | Select-Object -ExpandProperty username
 
-$exportSheetBadNameMatched = "pBadNameMatched_$now"
-$exportSheetBadNameMisMatched = "pBadNameMisMatched_$now"
+$exportSheetBadNameMatched = "BadNameMatched_$now"
+$exportSheetBadNameMisMatch = "BadNameMisMatch_$now"
 
 foreach ( $badUserName in $badUserNames ) {
     $ldapFilter = "(sAMAccountName=$badUserName)"
     #Get-ADUser -LDAPFilter $ldapFilter -Properties $attributes | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetBadName -Append
     $curUser = Get-ADUser -LDAPFilter $ldapFilter -Properties $attributes
-    if ( $curUser.userPrincipalname -eq $curUser.mail ) {
-        # UPN och mail matchar
-        $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetBadNameMatched -Append
+    $numUser = $curUser | measure | Select-Object -ExpandProperty count
+    if ( $numUser -gt 0 ) {
+        if ( $curUser.userPrincipalname -eq $curUser.mail ) {
+            # UPN och mail matchar
+            $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetBadNameMatched -Append
+        } else {
+            # UPN och mail matchar inte
+            $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetBadNameMisMatch -Append
+        }
     } else {
-        # UPN och mail matchar inte
-        $curUser | Select-Object -Property givenName,SN,userPrincipalName,mail | Export-Excel -Path $excelWorkbook -WorksheetName $exportSheetBadNameMisMatched -Append
+        # Lägg till ej hittat användarnamn
+        $notFoundInActiveDirectory.Add($badUserName,$notFoundKey)
     }
+
+}
+
+# Exportera ej hittade Neptune-användare till Excelbladet
+$notFoundWorkSheet = "NotFoundInAD_$now"
+foreach ( $username in $notFoundInActiveDirectory.Keys ) {
+    $username | Export-Excel -Path $excelWorkbook -WorksheetName $notFoundWorkSheet -Append
 }
