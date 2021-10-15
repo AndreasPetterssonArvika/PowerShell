@@ -5,14 +5,26 @@
 # slår upp användarna och kontrollerar om deras userPrincipalname matchar attributet mail.
 # Alla hittade användare skrivs till nya blad (upp till fyra) i Excelboken.
 
+Function Get-FileName($initialDirectory)
+{  
+    [System.Reflection.Assembly]::LoadWithPartialName(“System.Windows.Forms”) | Out-Null
+
+    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+    $OpenFileDialog.initialDirectory = $initialDirectory
+    $OpenFileDialog.filter = “Excelfiler (*.xlsx)| *.xlsx”
+    $OpenFileDialog.Title = "Välj fil"
+    $OpenFileDialog.ShowDialog() | Out-Null
+    $OpenFileDialog.filename
+}
+
 if ( $psISE ) {
     $basePath = Split-Path $psISE.CurrentFile.FullPath
 } else {
     $basePath = $PSScriptRoot
 }
 
-#$basePath = '<manuell sökväg>'    # Sätt om det ska vara manuell sökväg, lämna utkommenterad annars.
-$excelWorkbook = "$basePath\<Excelboksnamn>"
+
+$excelWorkbook = Get-FileName($basePath)
 $excelWorksheet = "all_users"
 
 $neptuneUsers = Import-Excel -Path $excelWorkbook -WorksheetName $excelWorksheet
