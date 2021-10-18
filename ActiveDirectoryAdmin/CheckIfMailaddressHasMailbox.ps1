@@ -6,9 +6,14 @@
 # - de som har ett värde i msExchMailboxGuid och msexchRemoteRecipientType som är 4, tolkat som att de har en Office-365-mailbox
 
 # Platsen för in- och utdata
-$BaseFilePath = $PSScriptRoot     # Detta är mappen där skriptet ligger
-#$BaseFilePath = 'C:\Temp'        # Alternativ om man vill ha datafilerna någon annanstans
+if ( $psISE ) {
+    $BaseFilePath = Split-Path -Path $psISE.CurrentFile.FullPath
+} else {
+    $BaseFilePath = $PSScriptRoot
+}
 
+# Alternativ om man vill ha datafilerna någon annanstans än där skriptet är sparat
+$BaseFilePath = 'C:\Temp'        
 
 
 # Indatafil, textfil med en mailadress per rad
@@ -34,7 +39,10 @@ $attributeList = @('mail','msExchMailboxGuid','msexchRemoteRecipientType')
 $noGuidPattern = '^$'
 
 # Läs in listan med mailadresser
-$importedMailAddresses = Get-Content -Path $mailAddressListPath
+#$importedMailAddresses = Get-Content -Path $mailAddressListPath
+
+# Läs in mailadresser från AD
+$importedMailAddresses = Get-ADUser -Filter * -SearchBase '<BaseOU>' -Properties $attributeList | Select-Object -ExpandProperty mail
 
 ################################
 #                              #
