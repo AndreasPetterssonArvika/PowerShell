@@ -32,7 +32,7 @@ $neptuneUsers = Import-Excel -Path $excelWorkbook -WorksheetName $excelWorksheet
 $userObjectArray = @()
 
 foreach ( $row in $neptuneUsers ) {
-    $newUser = @([PSCustomObject]@{ NeptuneUser = $row.username ; mail = $row.mail ; userPrincipalName = '' })
+    $newUser = @([PSCustomObject]@{ NeptuneUser = $row.username ; mail = $row.mail ; userPrincipalName = '' ; sAMAccountName = '' })
 
     $userObjectArray = $userObjectArray + $newUser
 }
@@ -41,6 +41,7 @@ foreach ( $userObject in $userObjectArray ) {
     $tempMail = $userObject.mail
     $ldapFilter = "(mail=$tempMail)"
     $userObject.userPrincipalName = Get-ADUser -LDAPFilter $ldapFilter -Properties userPrincipalName | Select-Object -ExpandProperty userPrincipalname
+    $userObject.sAMAccountName = Get-ADUser -LDAPFilter $ldapFilter -Properties sAMAccountName | Select-Object -ExpandProperty sAMAccountName
 }
 
 $now = Get-Date -UFormat "%Y%m%d%H%M"
