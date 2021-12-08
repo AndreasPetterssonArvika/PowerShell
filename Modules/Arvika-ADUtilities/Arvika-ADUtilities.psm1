@@ -6,9 +6,8 @@
 # - $userAttributes, the attributes to be copied
 function Copy-ADUserAttributes {
     param (
-        [Parameter(Mandatory,ValueFromPipeline)]
-        $copyToUser
-        $copyFromUser
+        [Parameter(Mandatory,ValueFromPipeline)] $copyToUser,
+        $copyFromUser,
         $userAttributes
     )
 
