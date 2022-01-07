@@ -1,0 +1,14 @@
+# Script retrieves groups from one user, presents them in a gridview
+# and adds another user to the selected groups.
+#
+# Parameters:
+# - $userToCopyFrom, the user to be copied from, sAMAccountName
+# - $userToCopyTo, the user to be copied to, sAMAccountName
+
+$attributes=@('mail','description')
+
+$userToCopyFrom = '<sAMAccountName>'
+
+$userToCopyTo = '<sAMAccountName>'
+
+Get-ADPrincipalGroupMembership -Identity $userToCopyFrom  | Out-GridView -PassThru | Add-ADGroupMember -Members $userToCopyTo

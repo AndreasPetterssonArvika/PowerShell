@@ -25,7 +25,7 @@ function Copy-ADUserAttributes {
 
     $attribsToSet = @{}
 
-    foreach ( $attribute in $attributes ) {
+    foreach ( $attribute in $attributes ) {    # foreach triggers warning as an alias that should be changed. This instance of foreach is NOT an alias, rather MS has overloaded the meaning of foreach.
         if ( $copiedAttribs.$attribute) {
             $attribsToSet.Add($attribute,$copiedAttribs.$attribute)
         }
