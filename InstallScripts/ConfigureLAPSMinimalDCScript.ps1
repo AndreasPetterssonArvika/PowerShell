@@ -5,7 +5,7 @@ BREAK
 
 # Check if LAPS is installed on this computer
 # See LAPS Detailed Technical Specification of Operational Procedures for file path info
-$LAPSDLL =  "$env:ProgramFiles\LAPS\AdmPwd.Utils.dll"
+$LAPSDLL =  "$env:Windir\System32\WindowsPowerShell\v1.0\Modules\AdmPwd.PS"
 if( -Not (test-path $LAPSDLL)) {
     #Not installed, quit script
     echo 'LAPS doesnt seem to be installed on this computer'
