@@ -1,0 +1,14 @@
+Komma igång med PowerShell
+==========================
+Windows PowerShell och Windows PowerShell ISE installeras med Windows 10.
+De fungerar än så länge men är på väg ut, det här är vad du ska använda istället.
+
+Ladda ner och installera PowerShell, https://aka.ms/powershell-release?tag=stable
+Starta PowerShell (inte Windows PowerShell) som administratör och sätt ExecutionPolicy
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+
+Behöver du skriva egna skript i någon utsträckning, installera Visual Studio Code (VSCode)
+    https://code.visualstudio.com/download
+Installera PowerShell extension för VS Code
+
+Använder du Terminal kan du ändra så att PowerShell  öppnas som standard istället för Windows PowerShell
