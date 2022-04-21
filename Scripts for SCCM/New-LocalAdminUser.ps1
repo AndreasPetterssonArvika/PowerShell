@@ -32,6 +32,8 @@ function Get-LocalNameForSID {
 $PSDefaultParameterValues=@{"New-LocalAdminUser:LocalUserDescription"="Lokalt administratörskonto"}
 $ErrorActionPreference = 'Stop'
 
+$now = Get-Date -Format 'yyMMdd'
+
 $objLocalUser = $null
 
 # Kontrollera om användarnamnet finns och skapa användaren vid behov
@@ -48,6 +50,9 @@ try {
 # Om användaren inte finns
 if ( !$objLocalUser ) {
     Write-Verbose "Användaren $LocalUserName skapas."
+    if ( !$LocalUserDescription ) {
+        $LocalUserDescription = "Lokalt användarkonto skapat $now"
+    }
     # Skapa lösenordet, behöver inte sparas
     $newPass = New-ComplexString -PasswordLength 12 | ConvertTo-SecureString -AsPlainText -Force
     # Skapa användaren
@@ -64,7 +69,7 @@ Add-LocalGroupMember -Group $localAdminGroupName -Member $LocalUserName
 # Logga till textfil
 if ( $LogFile ) {
     "New-LocalAdminUser.ps1`nAnvändaren $LocalUserName skapades och placerades i gruppen $localAdminGroupName" | Out-File -FilePath $LogFile
-    Write-Verbose "Loggfilen $LogFile skapad."
+    Write-Verbose "Loggfilen $LogFile skapad $now."
 } else {
     Write-Verbose "Ingen loggfil angiven, loggar inte."
 }
