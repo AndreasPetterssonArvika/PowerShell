@@ -42,7 +42,7 @@ try {
     $objLocalUser = Get-LocalUser -Name $LocalUserName
     Write-Verbose "Användaren $LocalUserName hittades."
 } catch [Microsoft.PowerShell.Commands.UserNotFoundException] {
-    Write-Warning "Användaren $LocalUserName hittades inte."
+    Write-Verbose "Användaren $LocalUserName hittades inte."
 } catch {
     Write-Error "Oväntat fel vid sökning efter användaren $LocalUserName."
 }
