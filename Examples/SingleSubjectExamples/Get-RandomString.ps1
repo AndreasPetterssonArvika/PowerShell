@@ -7,7 +7,7 @@ function New-SimpleString {
     )
 
     # Skapa slumpsträngen baserat på gemener
-    $newPassword = -join ((97..122) | Get-Random -Count $PasswordLength | % {[char]$_})
+    $newPassword = -join ((97..122) | Get-Random -Count $PasswordLength | ForEach-Object {[char]$_})
 
     return $newPassword
 }
@@ -19,7 +19,7 @@ function New-ComplexString {
 
     # Skapa slumpsträngen baserat på siffror, versaler och gemener.
     # OBS! Konstruktionen för att lägga ihop teckentyperna.
-    $newPassword = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count $PasswordLength | % {[char]$_})
+    $newPassword = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count $PasswordLength | ForEach-Object {[char]$_})
     return $newPassword
 
 }
