@@ -15,10 +15,11 @@ Write-Verbose "Startar updatering av VUX-elever"
 # Importera elever från fil och skapa en dictionary
 # TODO Filtrera elever redan här?
 $PCStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim
+Write-Verbose $PCStudents
 
 # Hämta elever från Active Directory och skapa en dictionary
 $ldapfilter = '()'
-$attributes = @()
+$attributes = @('mail')
 $ADStudents = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
 
 # Hitta elever utan matchning som har samordningsnummer
@@ -33,4 +34,4 @@ $ADStudents = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
 # Lås gamla konton, flytta till lås-OU
 
 # Skapa nya konton med mapp
-# Generera om möjligt
+# Generera om möjligt de kopplade Worddokumenten för användarna
