@@ -12,3 +12,6 @@ Behöver du skriva egna skript i någon utsträckning, installera Visual Studio 
 Installera PowerShell extension för VS Code
 
 Använder du Terminal kan du ändra så att PowerShell  öppnas som standard istället för Windows PowerShell
+
+Hitta sökvägarna till modulerna. De visas med $env:PSModulepath
+Windows-användare har en mapp i sin egen profil där egna moduler kan/ska placeras.
