@@ -1,15 +1,19 @@
-﻿# Copy files to and from VM
+﻿<#
+Kopiera filer till och från viruell maskin
+Observera att det inte går att använda wildcards vid kopieringen
+#>
 
-# Copy files from host to VM
-$adminCredential = Get-Credential
-$VMName = 'SKOLA01'
-$session = New-PSSession -VMName $VMName -Credential $adminCredential
-Copy-Item -ToSession $session -Path 'C:\Users\andreas.pettersson\Desktop\dbtemp\*' -Destination 'C:\Users\administrator\Documents' -Recurse
-Remove-PSSession $session
+# Kopiera en fil från host till VM
+$VM = <Name of VM>
+$SourceFile = <Local path to files on host>
+$DestinationPath = <Local path to files on VM>
 
+Copy-VMFile -FileSource Host -Name $VM -SourcePath $SourceFile -DestinationPath $DestinationPath
 
-# Copy files from VM to host
-$adminCredential = Get-Credential
-$session = New-PSSession -VMName $VMName -Credential $adminCredential
-Copy-Item -FromSession $session -Path "C:\Users\administrator\Documents\*.ps1" -Destination 'C:\temp'
-Remove-PSSession $session
+<#
+Kopiera flera filer
+Eftersom kommandot Copy-VMFile inte accepterar wildcards kan man använda följande konstruktion som slår upp alla filer
+i $SourceFiles och gör Copy-VMFile för var och en av dem
+#>
+$SourceFiles = <Local path to files on host>\*.*
+Get-ChildItem -LiteralPath $SourceFiles | ForEach-Object { Copy-VMFile -FileSource Host -Name $VM -DestinationPath -SourcePath $_.FullName } 
