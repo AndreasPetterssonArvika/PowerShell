@@ -19,13 +19,22 @@ function Update-ANCVUXElever {
     $PCStudents
 
     # Hämta elever från Active Directory och skapa en dictionary
-    <#$ldapfilter = '()'
+    <#$ldapfilter = '(employeeType=student)'
     $attributes = @('mail')
+    $searchBase = 'OU=VUXElever,OU=Test,DC=test,DC=local'
     $ADStudents = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
+    $ADStudents
     #>
 
+    <#
     # Hitta elever utan matchning som har samordningsnummer
     # Går det att hitta förslag på matchning?
+    # Två matchpatterns, en för bef, en för framtida
+    $matchPattern = '^[\d]{6}-[\d]{4}$'
+    $matchPattern = '^[\d]{12}$'
+
+    Hitta förslag på matchning
+    #>
 
     # Uppdatera elever som bytt samordningsnummer mot personnummer
 
