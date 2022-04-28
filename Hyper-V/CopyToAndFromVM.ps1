@@ -10,6 +10,10 @@ $DestinationPath = <Local path to files on VM>
 
 Copy-VMFile -FileSource Host -Name $VM -SourcePath $SourceFile -DestinationPath $DestinationPath
 
+# Skriva över filer kräver växeln -Force
+
+Copy-VMFile -FileSource Host -Name $VM -SourcePath $SourceFile -DestinationPath $DestinationPath -Force
+
 <#
 Kopiera flera filer
 Eftersom kommandot Copy-VMFile inte accepterar wildcards kan man använda följande konstruktion som slår upp alla filer
