@@ -21,7 +21,6 @@ function Update-ANCVUXElever {
     # TODO Filtrera elever redan här?
     Write-Verbose "Path`: $ImportFile"
     Write-Verbose "Delimiter`: $ImportDelimiter"
-    $properties = @('Namn',"$UserIdentifier")
     $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding oem | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
     [hashtable]$studentDict = Get-ANCStudentDict -StudentRows $uniqueStudents
 
@@ -35,7 +34,6 @@ function Update-ANCVUXElever {
     #<#
     # Hämta elever från Active Directory och skapa en dictionary
     $ldapfilter = '(employeeType=student)'
-    $attributes = @('mail',"$UserIdentifier")
     $searchBase = 'OU=VUXElever,OU=Test,DC=test,DC=local'
     [hashtable]$userDict = Get-ANCUserDict -SearchBase $searchBase -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
     #$userDict.Keys
