@@ -192,22 +192,12 @@ function New-ANCStudentUsers {
         [string][Parameter(Mandatory)]$UserScript
     )
 
-    $count = 0
-    $maxCount = 10
-
     foreach ( $row in $UniqueStudents ) {
         #Write-Verbose "New user row`: $row"
         if ( $NewUserDict.ContainsKey($row.IDKey) ) {
             New-ANCStudentUser -PCFullName $row.Namn -IDKey $row.IDKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript
         }
-
-        if ( $count -gt $maxCount ) {
-            BREAK
-        }
-
-        $count+=1
-
-
+        
     }
 
 }
