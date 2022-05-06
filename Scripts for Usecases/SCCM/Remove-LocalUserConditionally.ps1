@@ -16,7 +16,11 @@ $numReqLocalAdmins = Get-LocalGroupMember -SID $admGrpSID | where-object { $_.Na
 if ( $numReqLocalAdmins -gt 0 ) {
     # Radera lokal användaren
     if ( $PSCmdlet.ShouldProcess($UserToRemove,"Remove-LocalUser")) {
+        Write-Verbose "User $RequiredAdmin found in local administrators group, SID`: $admGrpSID "
+        Write-Verbose "Removing user $UserToRemove..."
         Remove-LocalUser -Name $UserToRemove
     }
     
+} else {
+    Write-Verbose "User $RequiredAdmin not found"
 }
