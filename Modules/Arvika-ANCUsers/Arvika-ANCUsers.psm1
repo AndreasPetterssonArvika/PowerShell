@@ -21,6 +21,7 @@ function Update-ANCVUXElever {
 
     $domain = $env:USERDOMAIN
     $DNSDomain = $env:USERDNSDOMAIN
+    $ldapDomain = (Get-ADRootDSE).defaultNamingContext
 
     # Importera elever från fil och skapa en dictionary
     # TODO Filtrera elever redan här?
@@ -39,7 +40,9 @@ function Update-ANCVUXElever {
     #<#
     # Hämta elever från Active Directory och skapa en dictionary
     $ldapfilter = '(employeeType=student)'
-    $searchBase = "OU=VUXElever,OU=Test,$DNSDomain"
+    Write-Verbose "Current users LDAP-filter`: $ldapfilter"
+    $searchBase = "OU=VUXElever,OU=Test,$ldapDomain"
+    write-verbose "Current users searchBase`: $searchBase"
     [hashtable]$userDict = Get-ANCUserDict -SearchBase $searchBase -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
     #$userDict.Keys
     #>
@@ -53,11 +56,11 @@ function Update-ANCVUXElever {
     # Uppdatera elever som fått ändring i identifierare
 
     # Lås gamla konton, flytta till lås-OU
-    $oldUserOU = "OU=Elever,OU=GamlaKonton,$DNSDomain"
+    $oldUserOU = "OU=Elever,OU=GamlaKonton,$ldapDomain"
     Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $oldUsers
 
     # Skapa nya konton med mapp
-    $newUserOU = "OU=VUXElever,OU=Test,$DNSDomain"
+    $newUserOU = "OU=VUXElever,OU=Test,$ldapDomain"
     New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUsers -NewUserOU $newUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
 
 
@@ -284,8 +287,7 @@ function New-ANCStudentFolder {
     )
 
     # Skapa mappen
-    New-Item -Path $UserFolderPath -Name $sAMAccountName -ItemType Directory
-
+    New-Item -Path $UserFolderPath -Name $sAMAccountName -ItemType Directory | Out-Null
     $newUserFolder = "$UserFolderPath`\$sAMAccountName"
 
     # Sätt behörighet
@@ -298,8 +300,7 @@ function New-ANCStudentFolder {
 
     # Dela mappen
     $shareName = $sAMAccountName + '$'
-
-    Invoke-command -ComputerName $ShareServer -ScriptBlock {param ($sharename, $newUserFolder, $sAMAccountName) New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess  "TEST\$sAMAccountName" } -ArgumentList $sharename, $newUserFolder, $sAMAccountName
+    Invoke-command -ComputerName $ShareServer -ScriptBlock {param ($sharename, $newUserFolder, $sAMAccountName) New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess "TEST\$sAMAccountName" | Out-Null } -ArgumentList $sharename, $newUserFolder, $sAMAccountName
 
 }
 
