@@ -1,6 +1,7 @@
 <#
 Skriptet raderar angiven användare förutsatt att en annan användare
-redan är lokal administratör
+redan är lokal administratör.
+Skapat i samband med införandet av LAPS
 #>
 [cmdletbinding(SupportsShouldProcess)]
 param (
