@@ -1,3 +1,9 @@
+<#
+Skriptet låser ett befintligt, lokalt användarkonto
+Dessutom sätts ett nytt, slumpmässigt lösenord
+Skapat i samband med införandet av LAPS
+#>
+
 [cmdletbinding()]
 param (
     [string][Parameter(Mandatory)]$LocalUserName

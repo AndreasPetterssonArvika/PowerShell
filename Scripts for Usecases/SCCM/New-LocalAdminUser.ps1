@@ -1,3 +1,10 @@
+<#
+Skriptet skapar ett nytt lokalt administratörskonto
+Kontot får ett slumpmässigt lösenord eftersom avsikten är att kontot
+ska användas för LAPS och alltså kommer att få nya lösenord automatiskt.
+Skapat i samband med införandet av LAPS
+#>
+
 [cmdletbinding()]
 param (
     [string][Parameter(Mandatory)]$LocalUserName,
