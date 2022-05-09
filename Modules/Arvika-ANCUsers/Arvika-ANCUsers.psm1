@@ -12,10 +12,15 @@ function Update-ANCVUXElever {
     [string][Parameter(Mandatory)]$UserIdentifierPattern,
     [string][Parameter(Mandatory)]$UserPrefix,
     [string][Parameter(Mandatory)]$MailDomain,
-    [string][Parameter(Mandatory)]$UserScript
+    [string][Parameter(Mandatory)]$UserScript,
+    [string][Parameter(Mandatory)]$UserFolderPath,
+    [string][Parameter(Mandatory)]$ShareServer
 )
 
     Write-Verbose "Startar updatering av VUX-elever"
+
+    $domain = $env:USERDOMAIN
+    $DNSDomain = $env:USERDNSDOMAIN
 
     # Importera elever från fil och skapa en dictionary
     # TODO Filtrera elever redan här?
@@ -34,7 +39,7 @@ function Update-ANCVUXElever {
     #<#
     # Hämta elever från Active Directory och skapa en dictionary
     $ldapfilter = '(employeeType=student)'
-    $searchBase = 'OU=VUXElever,OU=Test,DC=test,DC=local'
+    $searchBase = "OU=VUXElever,OU=Test,$DNSDomain"
     [hashtable]$userDict = Get-ANCUserDict -SearchBase $searchBase -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
     #$userDict.Keys
     #>
@@ -48,12 +53,12 @@ function Update-ANCVUXElever {
     # Uppdatera elever som fått ändring i identifierare
 
     # Lås gamla konton, flytta till lås-OU
-    $oldUserOU = 'OU=Elever,OU=GamlaKonton,DC=test,DC=local'
+    $oldUserOU = "OU=Elever,OU=GamlaKonton,$DNSDomain"
     Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $oldUsers
 
     # Skapa nya konton med mapp
-    $newUserOU = 'OU=VUXElever,OU=Test,DC=test,DC=local'
-    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUsers -NewUserOU $newUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -UserScript $UserScript
+    $newUserOU = "OU=VUXElever,OU=Test,$DNSDomain"
+    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUsers -NewUserOU $newUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
 
 
     # Generera om möjligt de kopplade Worddokumenten för användarna
@@ -71,10 +76,15 @@ function Get-ANCStudentDict {
 
     foreach ( $row in $StudentRows ) {
 
+        <#
+        # TODO Move to separate function
         $year=(Get-Culture).Calendar.ToFourDigitYear($row.IDKey.Substring(0,2))
         $mmdd=$row.IDKey.Substring(2,4)
         $nums=$row.IDKey.Substring(7,4)
         $tKey="$year$mmdd$nums"
+        #>
+
+        $tKey = ConvertTo-IDKey12 -IDKey11 $row.IDKey
 
         $retHash.Add($tKey,$row.Namn)
     }
@@ -86,13 +96,29 @@ function Get-ANCStudentDict {
 function ConvertTo-IDKey12 {
     [cmdletbinding()]
     param(
-        [string]$IDKey11
+        [string]$IDKey11,
+        [string]$IDKey10
     )
 
-    $year=(Get-Culture).Calendar.ToFourDigitYear($row.IDKey.Substring(0,2))
-    $mmdd=$row.IDKey.Substring(2,4)
-    $nums=$row.IDKey.Substring(7,4)
-    $tKey="$year$mmdd$nums"
+    $tKey = ''
+
+    if ( $IDKey11 ) {
+        
+        write-verbose "Converting $IDKey11"
+        $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey11.Substring(0,2))
+        $mmdd=$IDKey11.Substring(2,4)
+        $nums=$IDKey11.Substring(7,4)
+        $tKey="$year$mmdd$nums"
+
+    } else {
+        
+        write-verbose "Converting $IDKey10"
+        $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey10.Substring(0,2))
+        $mmdd=$IDKey10.Substring(2,4)
+        $nums=$IDKey10.Substring(6,4)
+        $tKey="$year$mmdd$nums"
+
+    }
 
     return $tKey
 
@@ -189,13 +215,21 @@ function New-ANCStudentUsers {
         [string][Parameter(Mandatory)]$UserIdentifier,
         [string][Parameter(Mandatory)]$UserPrefix,
         [string][parameter(Mandatory)]$MailDomain,
-        [string][Parameter(Mandatory)]$UserScript
+        [string][Parameter(Mandatory)]$UserScript,
+        [string][Parameter(Mandatory)]$UserFolderPath,
+        [string][Parameter(Mandatory)]$ShareServer
     )
 
-    foreach ( $row in $UniqueStudents ) {
-        #Write-Verbose "New user row`: $row"
+    $count=1
+    $maxCount = 9
+
+    foreach ( $row in $UniqueStudents )  {   #Write-Verbose "New user row`: $row"
         if ( $NewUserDict.ContainsKey($row.IDKey) ) {
-            New-ANCStudentUser -PCFullName $row.Namn -IDKey $row.IDKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript
+            New-ANCStudentUser -PCFullName $row.Namn -IDKey $row.IDKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+        }
+        $count+=1
+        if ( $count -gt $maxCount ) {
+            BREAK
         }
         
     }
@@ -211,7 +245,9 @@ function New-ANCStudentUser {
         [string][Parameter(Mandatory)]$UserIdentifier,
         [string][parameter(Mandatory)]$MailDomain,
         [string][Parameter(Mandatory)]$StudentOU,
-        [string][Parameter(Mandatory)]$UserScript
+        [string][Parameter(Mandatory)]$UserScript,
+        [string][Parameter(Mandatory)]$UserFolderPath,
+        [string][Parameter(Mandatory)]$ShareServer
     )
 
     $ADDomain = Get-ADDomain | Select-Object -ExpandProperty DNSRoot
@@ -231,7 +267,39 @@ function New-ANCStudentUser {
         Write-Error "Problem att skapa $username $userPwd"
     }
 
-    Set-ADUser -Identity $username -Replace @{employeeType='student'}
+    # Ytterligare attribut
+    Set-ADUser -Identity $username -Replace @{employeeType='student';$UserIdentifier=$IDKey}
+
+    # Skapa delad mapp för elev, mappas via inloggningsskript
+    New-ANCStudentFolder -sAMAccountName $username -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+
+}
+
+function New-ANCStudentFolder {
+    [cmdletbinding()]
+    param (
+        [string][Parameter(Mandatory)]$sAMAccountName,
+        [string][Parameter(Mandatory)]$UserFolderPath,
+        [string][Parameter(Mandatory)]$ShareServer
+    )
+
+    # Skapa mappen
+    New-Item -Path $UserFolderPath -Name $sAMAccountName -ItemType Directory
+
+    $newUserFolder = "$UserFolderPath`\$sAMAccountName"
+
+    # Sätt behörighet
+    $acl = Get-Acl -Path $newUserFolder
+    # TODO Finns den lokala domänen per automatik nånstans?
+    $UserPermission = "$env:USERDOMAIN\$sAMAccountName","FullControl", "ContainerInherit,ObjectInherit","None","Allow"
+    $UseraccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $UserPermission
+    $acl.SetAccessRule($UseraccessRule)
+    Set-Acl -Path $newUserFolder -AclObject $acl
+
+    # Dela mappen
+    $shareName = $sAMAccountName + '$'
+
+    Invoke-command -ComputerName $ShareServer -ScriptBlock {param ($sharename, $newUserFolder, $sAMAccountName) New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess  "TEST\$sAMAccountName" } -ArgumentList $sharename, $newUserFolder, $sAMAccountName
 
 }
 
