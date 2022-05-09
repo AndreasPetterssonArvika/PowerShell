@@ -10,6 +10,7 @@ function Update-ANCVUXElever {
     [string][Parameter(Mandatory)]$UserInputIdentifier,
     [string][Parameter(Mandatory)]$UserIdentifier,
     [string][Parameter(Mandatory)]$UserIdentifierPattern,
+    [Int32][Parameter(Mandatory)]$UserIdentifierPartialMatchLength,
     [string][Parameter(Mandatory)]$UserPrefix,
     [string][Parameter(Mandatory)]$MailDomain,
     [string][Parameter(Mandatory)]$UserScript,
@@ -51,6 +52,11 @@ function Update-ANCVUXElever {
     # Skapa difflistor
     [hashtable]$oldUsers = Get-ANCOldUsers -CurrentUsers $userDict -ImportStudents $studentDict
     [hashtable]$newUsers = Get-ANCNewUsers -CurrentUsers $userDict -ImportStudents $studentDict
+    #>
+
+    #<#
+    # Hitta ev elever som kan ha fått en förändring i identifieraren
+
     #>
     
     # Uppdatera elever som fått ändring i identifierare
