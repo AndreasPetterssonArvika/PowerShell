@@ -55,8 +55,8 @@ function Update-ANCVUXElever {
     #>
 
     #<#
-    # Hitta ev elever som kan ha fått en förändring i identifieraren
-
+    # Hitta ev elever som kan ha fått en förändring i identifieraren och genomför matchning
+    (Get-ANCMatchCandidates -NewUserDict $newUsers -OldUserDict $oldUsers).Keys | Out-GridView -PassThru | Set-ANCNewID -Verbose
     #>
     
     # Uppdatera elever som fått ändring i identifierare
@@ -321,23 +321,68 @@ function Get-ANCStudentPwd {
     
 }
 
-function Get-IDChangeCandidates {
+function Get-ANCMatchCandidates {
     [cmdletbinding()]
+    [OutputType([hashtable])]
     param (
-        [hashtable][Parameter(Mandatory)]$OldUsers,
-        [hashtable][Parameter(Mandatory)]$NewUsers,
-        [string][Parameter(Mandatory)]$UserIdentifierPattern
+        [hashtable][Parameter(Mandatory)]$NewUserDict,
+        [hashtable][Parameter(Mandatory)]$OldUserDict
     )
 
-    foreach ( $key in $OldUsers ) {
-        if ( $key -notmatch $UserIdentifierPattern ) {
-            $pKey=$key.ToString().Substring(0,6)
-            if ( $NewUsers.Keys -match "$pKey*" ) {
-                
-            }
+    $keyMatches = @{}
 
+    foreach ( $oKey in $oldUsers.Keys ) {
+        if ( $oKey -notmatch $pattern ) {
+            $oName = $oldUsers[$oKey]
+            
+            $tDate = $oKey.Substring(0,$matchLength)
+            $tPattern = "^$tDate[\d]{4}$"
+            foreach ( $nKey in $newUsers.Keys ) {
+                if ( $nKey -match $tPattern ) {
+                    $keyMatches.Add($nKey,$oKey)
+                }
+            }
         }
     }
+
+    $possibleMatches = @{}
+
+    foreach ( $key in $keyMatches.Keys ) {
+        
+        $oKey = $keyMatches[$key]
+        $nName = $newUsers[$key]
+        $oName = $oldUsers[$oKey]
+        $tCand = [PSCustomObject]@{
+            NewKey = $key
+            NewName = $nName
+            OldKey = $oKey
+            OldName = $oName
+        }
+
+        $possibleMatches.Add($tCand,'candidate')
+    }
+
+    return $possibleMatches
+
+}
+
+function Set-ANCNewID {
+    [cmdletbinding()]
+    param(
+        [PSCustomObject][Parameter(ValueFromPipeline)]$MatchObject
+    )
+
+    begin {}
+
+    process {
+        $nKey = $MatchObject.NewKey
+        $oKey = $MatchObject.OldKey
+        $nName = $MatchObject.NewName
+        $oName = $MatchObject.OldName
+        Write-Verbose "$nName byter ID från $oKey till $nKey"
+    }
+
+    end {}
 }
 
 function New-ANCUserName {
