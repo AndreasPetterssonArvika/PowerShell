@@ -404,7 +404,6 @@ function Set-ANCNewID {
         $nKey = $MatchObject.NewKey
         $oKey = $MatchObject.OldKey
         $nName = $MatchObject.NewName
-        $oName = $MatchObject.OldName
         Write-Verbose "$nName byter ID från $oKey till $nKey"
 
         if ( $PSCmdlet.ShouldProcess($nName)) {
