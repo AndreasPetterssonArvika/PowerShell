@@ -55,20 +55,35 @@ function Update-ANCVUXElever {
     #>
 
     #<#
-    # Hitta ev elever som kan ha fått en förändring i identifieraren och genomför matchning
-    (Get-ANCMatchCandidates -NewUserDict $newUsers -OldUserDict $oldUsers).Keys | Out-GridView -PassThru | Set-ANCNewID -Verbose
-    #>
+    # Hitta ev elever som kan ha fått en förändring i identifieraren
+    [hashtable]$ANCMatchCandidates = Get-ANCMatchCandidates -NewUserDict $newUsers -OldUserDict $oldUsers -UserIdentifierPattern $UserIdentifierPattern -UserIdentifierPartialMatchLength $UserIdentifierPartialMatchLength
+    $ANCMatchCandidates.Keys
     
-    # Uppdatera elever som fått ändring i identifierare
+    # Genomför en matchning via en GridView och uppdatera elever som fått ändring i identifierare.
+    # $updatedUsers innehåller nycklar för användare som blvit uppdaterade och kan 
+    # tas bort ur dictionaries över gamla och nya användare.
+    $updatedUsers = $ANCMatchCandidates.Keys | Out-GridView -PassThru | Set-ANCNewID -UserIdentifier $UserIdentifier -Verbose
+    #>
 
+    foreach ($key in $updatedUsers.Keys ) {
+        $oKey = $updatedUsers[$key]
+        Write-verbose "Keys to remove from new and old user dictionaries $key $oKey"
+        $newUsers.Remove($key)
+        $oldUsers.Remove($oKey)
+    }
+    
+
+    #<#
     # Lås gamla konton, flytta till lås-OU
     $oldUserOU = "OU=Elever,OU=GamlaKonton,$ldapDomain"
     Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $oldUsers
+    #>
 
+    #<#
     # Skapa nya konton med mapp
     $newUserOU = "OU=VUXElever,OU=Test,$ldapDomain"
     New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUsers -NewUserOU $newUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
-
+    #>
 
     # Generera om möjligt de kopplade Worddokumenten för användarna
 
@@ -326,19 +341,26 @@ function Get-ANCMatchCandidates {
     [OutputType([hashtable])]
     param (
         [hashtable][Parameter(Mandatory)]$NewUserDict,
-        [hashtable][Parameter(Mandatory)]$OldUserDict
+        [hashtable][Parameter(Mandatory)]$OldUserDict,
+        [string][Parameter(Mandatory)]$UserIdentifierPattern,
+        [string][Parameter(Mandatory)]$UserIdentifierPartialMatchLength
     )
+
+    Write-Verbose 'Starting looking for possible ID changes...'
 
     $keyMatches = @{}
 
     foreach ( $oKey in $oldUsers.Keys ) {
-        if ( $oKey -notmatch $pattern ) {
+        Write-Verbose "Old user $oKey"
+        if ( $oKey -notmatch $UserIdentifierPattern ) {
             $oName = $oldUsers[$oKey]
-            
-            $tDate = $oKey.Substring(0,$matchLength)
+            Write-Verbose "Found incomplete match $oName $oKey"
+            $tDate = $oKey.Substring(0,$UserIdentifierPartialMatchLength)
             $tPattern = "^$tDate[\d]{4}$"
+            Write-Verbose "Looking for matches on partial pattern $tPattern"
             foreach ( $nKey in $newUsers.Keys ) {
                 if ( $nKey -match $tPattern ) {
+                    Write-verbose "Found match candidate $nKey"
                     $keyMatches.Add($nKey,$oKey)
                 }
             }
@@ -358,6 +380,7 @@ function Get-ANCMatchCandidates {
             OldKey = $oKey
             OldName = $oName
         }
+        Write-Verbose "Found possible match $nName $nKey"
 
         $possibleMatches.Add($tCand,'candidate')
     }
@@ -367,12 +390,15 @@ function Get-ANCMatchCandidates {
 }
 
 function Set-ANCNewID {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess=$True)]
     param(
-        [PSCustomObject][Parameter(ValueFromPipeline)]$MatchObject
+        [PSCustomObject][Parameter(ValueFromPipeline)]$MatchObject,
+        [string][Parameter(Mandatory)]$UserIdentifier
     )
 
-    begin {}
+    begin {
+        $updatedUsers = @{}
+    }
 
     process {
         $nKey = $MatchObject.NewKey
@@ -380,9 +406,20 @@ function Set-ANCNewID {
         $nName = $MatchObject.NewName
         $oName = $MatchObject.OldName
         Write-Verbose "$nName byter ID från $oKey till $nKey"
+
+        if ( $PSCmdlet.ShouldProcess($nName)) {
+            $ldapfilter="($UserIdentifier=$oKey)"
+            Get-ADUser -Ldapfilter $ldapfilter | Set-ADUser -replace @{$UserIdentifier=$MatchObject.NewKey}
+        }
+
+        $updatedUsers.add($nKey,$oKey)
+        
     }
 
-    end {}
+    end {
+        
+        return $updatedUsers
+    }
 }
 
 function New-ANCUserName {
