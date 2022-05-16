@@ -44,28 +44,40 @@ function Update-ANCVUXElever {
     Write-Verbose "Current users LDAP-filter`: $ldapfilter"
     $searchBase = "OU=VUXElever,OU=Test,$ldapDomain"
     write-verbose "Current users searchBase`: $searchBase"
-    [hashtable]$userDict = Get-ANCUserDict -SearchBase $searchBase -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
-    #$userDict.Keys
+    [hashtable]$activeUserDict = Get-ANCUserDict -SearchBase $searchBase -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
+    #$activeUserDict.Keys
     #>
 
-    <#
-    # Hämta gamla elever från Active Directory och skapa en dictinary
+    #<#
+    # Hämta avstängda elever från Active Directory och skapa en dictinary
     $ldapfilter = '(employeeType=student)'
-    Write-Verbose "Current users LDAP-filter`: $ldapfilter"
+    Write-Verbose "Retired users LDAP-filter`: $ldapfilter"
     $searchBase = "OU=Elever,OU=GamlaKonton,$ldapDomain"
-    write-verbose "Current users searchBase`: $searchBase"
+    write-verbose "Retired users searchBase`: $searchBase"
     [hashtable]$retiredDict = Get-ANCUserDict -SearchBase $searchBase -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
     #>
 
     #<#
     # Skapa difflistor
-    [hashtable]$oldUsers = Get-ANCOldUsers -CurrentUsers $userDict -ImportStudents $studentDict
-    [hashtable]$newUsers = Get-ANCNewUsers -CurrentUsers $userDict -ImportStudents $studentDict
+    # Aktiva användare utan matchning i importen
+    [hashtable]$retireCandidates = Get-ANCOldUsers -CurrentUsers $activeUserDict -ImportStudents $studentDict
+    # Elever i importen utan matchning bland aktiva användare
+    [hashtable]$newUserCandidates = Get-ANCNewUsers -CurrentUsers $activeUserDict -ImportStudents $studentDict
+    # Avstängda användare med matchning i elevimporten
+    [hashtable]$restoreCandidates = Get-ANCRestoreUsers -RetiredUsers $retiredDict -ImportStudents $studentDict
+    #>
+
+    #<#
+    # Ta bort användare som ska återställas ur dictionary för nya användare
+    # Alla hittade användare finns även i $newUserCandidates på grund av hur difflistorna skapas.
+    foreach ( $key in $restoreCandidates.Keys ) {
+        $newUserCandidates.Remove($key)
+    }
     #>
 
     #<#
     # Hitta ev elever som kan ha fått en förändring i identifieraren
-    [hashtable]$ANCMatchCandidates = Get-ANCMatchCandidates -NewUserDict $newUsers -OldUserDict $oldUsers -UserIdentifierPattern $UserIdentifierPattern -UserIdentifierPartialMatchLength $UserIdentifierPartialMatchLength
+    [hashtable]$ANCMatchCandidates = Get-ANCMatchCandidates -NewUserDict $newUserCandidates -OldUserDict $retireCandidates -UserIdentifierPattern $UserIdentifierPattern -UserIdentifierPartialMatchLength $UserIdentifierPartialMatchLength
     $ANCMatchCandidates.Keys
     
     # Genomför en matchning via en GridView och uppdatera elever som fått ändring i identifierare.
@@ -77,21 +89,27 @@ function Update-ANCVUXElever {
     foreach ($key in $updatedUsers.Keys ) {
         $oKey = $updatedUsers[$key]
         Write-verbose "Keys to remove from new and old user dictionaries $key $oKey"
-        $newUsers.Remove($key)
-        $oldUsers.Remove($oKey)
+        $newUserCandidates.Remove($key)
+        $retireCandidates.Remove($oKey)
     }
+    
     
 
     #<#
     # Lås gamla konton, flytta till lås-OU
     $oldUserOU = "OU=Elever,OU=GamlaKonton,$ldapDomain"
-    Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $oldUsers
+    Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $retireCandidates
     #>
 
     #<#
     # Skapa nya konton med mapp
-    $newUserOU = "OU=VUXElever,OU=Test,$ldapDomain"
-    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUsers -NewUserOU $newUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+    $activeUserOU = "OU=VUXElever,OU=Test,$ldapDomain"
+    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $activeUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+    #>
+
+    #<#
+    # Återställ gamla användare som kommit tillbaka
+    Restore-ANCStudentUsers -RestoreUserDict $restoreCandidates -ActiveUserOU $activeUserOU -UserIdentifier $UserIdentifier
     #>
 
     # Generera om möjligt de kopplade Worddokumenten för användarna
@@ -223,6 +241,27 @@ function Get-ANCNewUsers {
     
 }
 
+function Get-ANCRestoreUsers {
+    [cmdletbinding()]
+    param (
+        [hashtable][Parameter(Mandatory)]$RetiredUsers,
+        [hashtable][Parameter(Mandatory)]$ImportStudents
+    )
+
+    $restDict= @{}
+
+    foreach ( $key in $ImportStudents.Keys ) {
+        if ( $RetiredUsers.ContainsKey($key) ) {
+            # Hittat matchning mellan avstängd användare och aktiv student
+            # Lägg till i dictionary
+            $restDict.Add($key,'restore')
+        }
+    }
+
+    return $restDict
+
+}
+
 function Lock-ANCOldUsers {
     [cmdletbinding()]
     param(
@@ -258,7 +297,10 @@ function New-ANCStudentUsers {
 
     foreach ( $row in $UniqueStudents )  {   #Write-Verbose "New user row`: $row"
         if ( $NewUserDict.ContainsKey($row.IDKey) ) {
-            New-ANCStudentUser -PCFullName $row.Namn -IDKey $row.IDKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+            $tFullName = $row.Namn
+            $tKey = $row.IDKey
+            Write-Verbose "New-ANCStucentUsers`: Ny användare $tFullName $tKey"
+            New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
         }
         $count+=1
         if ( $count -gt $maxCount ) {
@@ -334,6 +376,38 @@ function New-ANCStudentFolder {
 
 }
 
+function Restore-ANCStudentUsers {
+    [cmdletbinding()]
+    param(
+        [hashtable][Parameter(Mandatory)]$RestoreUserDict,
+        [string][Parameter(Mandatory)]$UserIdentifier,
+        [string][Parameter(Mandatory)]$ActiveUserOU
+    )
+
+    $RestoreUserDict.Keys | Restore-ANCStudentUser -UserIdentifier $UserIdentifier -ActiveUserOU $ActiveUserOU
+
+}
+
+function Restore-ANCStudentUser {
+    [cmdletbinding()]
+    param(
+        [string][Parameter(ValueFromPipeline)]$UserKey,
+        [string][Parameter(Mandatory)]$UserIdentifier,
+        [string][Parameter(Mandatory)]$ActiveUserOU
+    )
+
+    begin {}
+
+    process {
+        Write-Verbose "Restore-ANCStudentUser`: Restoring user with $UserIdentifier $UserKey"
+        $ldapFilter="($UserIdentifier=$UserKey)"
+        Get-ADUser -LDAPFilter $ldapFilter | Enable-ADAccount -PassThru | Move-ADObject -TargetPath $ActiveUserOU
+    }
+
+    end {}
+
+}
+
 function Get-ANCStudentPwd {
     param (
         [Int32]$PasswordLength
@@ -359,17 +433,17 @@ function Get-ANCMatchCandidates {
 
     $keyMatches = @{}
 
-    foreach ( $oKey in $oldUsers.Keys ) {
-        Write-Verbose "Old user $oKey"
+    foreach ( $oKey in $oldUserDict.Keys ) {
+        Write-Verbose "Get-ANCMatchCandidates`: Old user $oKey"
         if ( $oKey -notmatch $UserIdentifierPattern ) {
-            $oName = $oldUsers[$oKey]
-            Write-Verbose "Found incomplete match $oName $oKey"
+            $oName = $oldUserDict[$oKey]
+            Write-Verbose "Get-ANCMatchCandidates`: Found incomplete match $oName $oKey"
             $tDate = $oKey.Substring(0,$UserIdentifierPartialMatchLength)
             $tPattern = "^$tDate[\d]{4}$"
-            Write-Verbose "Looking for matches on partial pattern $tPattern"
-            foreach ( $nKey in $newUsers.Keys ) {
+            Write-Verbose "Get-ANCMatchCandidates`: Looking for matches on partial pattern $tPattern"
+            foreach ( $nKey in $newUserDict.Keys ) {
                 if ( $nKey -match $tPattern ) {
-                    Write-verbose "Found match candidate $nKey"
+                    Write-verbose "Get-ANCMatchCandidates`: Found match candidate $nKey"
                     $keyMatches.Add($nKey,$oKey)
                 }
             }
@@ -381,15 +455,15 @@ function Get-ANCMatchCandidates {
     foreach ( $key in $keyMatches.Keys ) {
         
         $oKey = $keyMatches[$key]
-        $nName = $newUsers[$key]
-        $oName = $oldUsers[$oKey]
+        $nName = $newUserDict[$key]
+        $oName = $oldUserDict[$oKey]
         $tCand = [PSCustomObject]@{
             NewKey = $key
             NewName = $nName
             OldKey = $oKey
             OldName = $oName
         }
-        Write-Verbose "Found possible match $nName $nKey"
+        Write-Verbose "Get-ANCMatchCandidates`: Found possible match $nName $nKey"
 
         $possibleMatches.Add($tCand,'candidate')
     }
