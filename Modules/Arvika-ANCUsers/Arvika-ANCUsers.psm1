@@ -48,6 +48,15 @@ function Update-ANCVUXElever {
     #$userDict.Keys
     #>
 
+    <#
+    # Hämta gamla elever från Active Directory och skapa en dictinary
+    $ldapfilter = '(employeeType=student)'
+    Write-Verbose "Current users LDAP-filter`: $ldapfilter"
+    $searchBase = "OU=Elever,OU=GamlaKonton,$ldapDomain"
+    write-verbose "Current users searchBase`: $searchBase"
+    [hashtable]$retiredDict = Get-ANCUserDict -SearchBase $searchBase -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
+    #>
+
     #<#
     # Skapa difflistor
     [hashtable]$oldUsers = Get-ANCOldUsers -CurrentUsers $userDict -ImportStudents $studentDict
