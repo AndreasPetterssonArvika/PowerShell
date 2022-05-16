@@ -28,7 +28,7 @@ function Update-ANCVUXElever {
     # TODO Filtrera elever redan här?
     Write-Verbose "Path`: $ImportFile"
     Write-Verbose "Delimiter`: $ImportDelimiter"
-    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding oem | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
+    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf8 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
     [hashtable]$studentDict = Get-ANCStudentDict -StudentRows $uniqueStudents
 
     #<#
@@ -513,12 +513,42 @@ function New-ANCUserName {
     )
 
 
-    $tGN = $givenName.Substring(0,3).ToLower()
-    $tSN = $SN.Substring(0,3).ToLower()
+    $tGN = $givenName.Substring(0,3).ToLower() | Replace-ANCuserDiacritics
+    $tSN = $SN.Substring(0,3).ToLower() | Replace-ANCuserDiacritics
     $newUName = $prefix + '.' + $tGN + '.' + $tSN
 
     return $newUName
 
+}
+
+function Replace-ANCuserDiacritics {
+    [cmdletbinding()]
+    param(
+        [string][Parameter(Mandatory,ValueFromPipeline)]$myString
+    )
+
+    $myString = $myString -creplace '[\u00C0-\u00C6]','A'
+    $myString = $myString -creplace '[\u00E0-\u00E6]','a'
+    $myString = $myString -creplace '[\00C7]','C'
+    $myString = $myString -creplace '[\00E7]','c'
+    $myString = $myString -creplace '[\u00C8-\u00CB]','E'
+    $myString = $myString -creplace '[\u00E8-\u00EB]','e'
+    $myString = $myString -creplace '[\u00CC-\u00CF]','E'
+    $myString = $myString -creplace '[\u00EC-\u00EF]','e'
+    $myString = $myString -creplace '[\00D0]','D'
+    $myString = $myString -creplace '[\00F0]','d'
+    $myString = $myString -creplace '[\00D1]','N'
+    $myString = $myString -creplace '[\00F1]','n'
+    $myString = $myString -creplace '[\u00D2-\u00D8]','O'
+    $myString = $myString -creplace '[\u00F2-\u00F8]','o'
+    $myString = $myString -creplace '[\u00D9-\u00DC]','U'
+    $myString = $myString -creplace '[\u00F9-\u00FC]','u'
+    $myString = $myString -creplace '[\00DD]','Y'
+    $myString = $myString -creplace '[\00FD]','y'
+
+    $myString = $myString -replace '[^\p{L}\p{Nd}]', ''
+
+    return $myString
 }
 
 function Get-PCSurName {
