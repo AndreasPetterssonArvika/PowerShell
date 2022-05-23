@@ -299,7 +299,7 @@ function New-ANCStudentUsers {
         if ( $NewUserDict.ContainsKey($row.IDKey) ) {
             $tFullName = $row.Namn
             $tKey = $row.IDKey
-            Write-Verbose "New-ANCStucentUsers`: Ny användare $tFullName $tKey"
+            Write-Verbose "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
             New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
         }
         $count+=1
@@ -338,7 +338,10 @@ function New-ANCStudentUser {
 
     try {
         New-ADUser -SamAccountName $username -Name $displayName -DisplayName $displayName -GivenName $givenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
-    } catch {
+    } catch [System.ServiceModel.FaultException] {
+        Write-Error "Caught specific error"
+    }catch {
+        
         Write-Error "Problem att skapa $username $userPwd"
     }
 
@@ -512,16 +515,22 @@ function New-ANCUserName {
         [string][Parameter(Mandatory)]$SN
     )
 
+    # Rensa för- och efternamn från eventuella tecken som inte ska finnas med
+    $inputGivenName = $GivenName.ToLower() -replace '[\W]','' | Replace-ANCUserDiacritics
+    $inputSN = $SN.ToLower() -replace '[\W]','' | Replace-ANCUserDiacritics
 
-    $tGN = $givenName.Substring(0,3).ToLower() | Replace-ANCuserDiacritics
-    $tSN = $SN.Substring(0,3).ToLower() | Replace-ANCuserDiacritics
+    # Skapa användarnamnet baserat på för- och efternamn
+    $tGN = $inputGivenName.Substring(0,3)
+    $tSN = $inputSN.Substring(0,3)
     $newUName = $prefix + '.' + $tGN + '.' + $tSN
+
+    # Kontrollera användarnamnet mot AD
 
     return $newUName
 
 }
 
-function Replace-ANCuserDiacritics {
+function Replace-ANCUserDiacritics {
     [cmdletbinding()]
     param(
         [string][Parameter(Mandatory,ValueFromPipeline)]$myString
