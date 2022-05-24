@@ -300,7 +300,12 @@ function New-ANCStudentUsers {
             $tFullName = $row.Namn
             $tKey = $row.IDKey
             Write-Verbose "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
-            New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+            try {
+                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+            } catch [RuntimeException] {
+                # Fel när användaren skulle skapas
+            }
+            
         }
         $count+=1
         if ( $count -gt $maxCount ) {
@@ -516,26 +521,127 @@ function New-ANCUserName {
     )
 
     # Rensa för- och efternamn från eventuella tecken som inte ska finnas med
-    $inputGivenName = $GivenName.ToLower() -replace '[\W]','' | Replace-ANCUserDiacritics
-    $inputSN = $SN.ToLower() -replace '[\W]','' | Replace-ANCUserDiacritics
+    # Ersätt diakritiska tecken
+    $inputGivenName = $GivenName.ToLower() | ConvertTo-ANCAlfaNumeric
+    $inputSN = $SN.ToLower() | ConvertTo-ANCAlfaNumeric
 
     # Skapa användarnamnet baserat på för- och efternamn
-    $tGN = $inputGivenName.Substring(0,3)
-    $tSN = $inputSN.Substring(0,3)
-    $newUName = $prefix + '.' + $tGN + '.' + $tSN
-
-    # Kontrollera användarnamnet mot AD
+    $newUName = New-ANCUniqueName -GivenName $inputGivenName -SN $inputGivenName -Prefix $Prefix
 
     return $newUName
 
 }
 
-function Replace-ANCUserDiacritics {
+function New-ANCUniqueName {
+    [cmdletbinding(DefaultParameterSetName = 'GivenName')]
+    param (
+        [Parameter(ParameterSetName = 'GivenName')]
+        [Int32]$GIndex = 2,
+        [Parameter(ParameterSetName = 'SN')]
+        [Int32]$SIndex = 2,
+        [Parameter(Mandatory = $true)]
+        [string]$Prefix,
+        [Parameter(Mandatory = $true)]
+        [string]$GivenName,
+        [Parameter(Mandatory = $true)]
+        [string]$SN
+    )
+
+    # Returvariabel
+    $FinishedUsername = ''
+    $namePartLength = 3
+
+    if ( ( $PSCmdlet.ParameterSetName -eq 'GivenName' ) -and ( $GivenName.Length -ge ( $GIndex + 1 ) ) ) {
+        # Skapa username med dubletthantering i förnamnet
+        $tGN = $GivenName.Substring(0,2) + $GivenName[$GIndex]
+        $tSN = Get-ANCUsernameSubstring -InputString $SN -Length $namePartLength
+        $FinishedUsername = $Prefix + '.' + $tGN + '.' + $tSN
+        
+        # Kontrollera mot AD
+        if ( Find-ANCUser -ANCUserName $FinishedUsername ) {
+            $GIndex+=1
+            $FinishedUsername = New-ANCUniqueName -GIndex $GIndex -Prefix $Prefix -GivenName $GivenName -SN $SN
+        }
+
+    } elseif ( $SN.Length -ge ( $SIndex + 1 ) ) {
+        # Skapa username med dubletthantering i efternamnet
+        $tGN = Get-ANCUsernameSubstring -InputString $GivenName -Length $namePartLength
+        $tSN = $SN.Substring(0,2) + $SN[$SIndex]
+        $FinishedUsername = $Prefix + '.' + $tGN + '.' + $tSN
+        
+        # Kontrollera mot AD
+        if ( Find-ANCUser -ANCUserName $FinishedUsername ) {
+            $SIndex+=1
+            $FinishedUsername = New-ANCUniqueName -SIndex $SIndex -Prefix $Prefix -GivenName $GivenName -SN $SN
+        }
+
+    } elseif ( ( $GivenName.Length -lt $namePartLength ) -and ( $SN.Length -lt $namePartLength) ) {
+        # Både för och efternamn korta, testa med för och efternamn
+        $FinishedUsername = $Prefix + '.' + $GivenName + '.' + $SN
+        
+        # Kontrollera mot AD
+        if ( Find-ANCUser -ANCUserName $FinishedUsername ) {
+            # Föreslaget användarnamn finns, returnera tom sträng
+            $FinishedUsername = ''
+        }
+    }
+
+    if ( $FinishedUsername -eq '' ) {
+        # Fel, skapa en exception
+        Throw "No valid username found for $GivenName $SN"
+    } else {
+        return $FinishedUsername
+    }
+    
+}
+
+function Find-ANCUser {
+    [cmdletbinding()]
+    param (
+        [Parameter( Mandatory = $true)]
+        [string]$ANCUserName
+    )
+
+    $numUsers = Get-ADUser -Identity $ANCUserName | Measure-Object | Select-Object -ExpandProperty Count
+
+    if ( $numUsers -gt 0 ) {
+        return $true
+    } else {
+        return $false
+    }
+}
+
+<#
+Funktionen returnerar en delsträng upp till maxlängden
+#>
+function Get-ANCUsernameSubstring {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$InputString,
+        [Parameter()]
+        [Int32]$Length = 3
+    )
+
+    if ( $InputString.Length -ge $Length ) {
+        return $InputString.Substring(0,$Length)
+    } else {
+        return $InputString
+    }
+    
+}
+
+function ConvertTo-ANCAlfaNumeric {
     [cmdletbinding()]
     param(
         [string][Parameter(Mandatory,ValueFromPipeline)]$myString
     )
 
+    # Byt ut icke alfanumeriska tecken
+    $myString = $myString -replace '[^\p{L}\p{Nd}]', ''
+
+    # Byt ut diverse diakritiska tecken
+    # creplace är case sensitive
     $myString = $myString -creplace '[\u00C0-\u00C6]','A'
     $myString = $myString -creplace '[\u00E0-\u00E6]','a'
     $myString = $myString -creplace '[\00C7]','C'
@@ -554,8 +660,6 @@ function Replace-ANCUserDiacritics {
     $myString = $myString -creplace '[\u00F9-\u00FC]','u'
     $myString = $myString -creplace '[\00DD]','Y'
     $myString = $myString -creplace '[\00FD]','y'
-
-    $myString = $myString -replace '[^\p{L}\p{Nd}]', ''
 
     return $myString
 }
