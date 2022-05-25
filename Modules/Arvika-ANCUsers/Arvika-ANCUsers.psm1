@@ -302,8 +302,9 @@ function New-ANCStudentUsers {
             Write-Verbose "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
             try {
                 New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
-            } catch [RuntimeException] {
+            } catch [System.Management.Automation.RuntimeException] {
                 # Fel när användaren skulle skapas
+                Write-Verbose "New-ANCStudentUsers`: Fel när användaren skulle skapas"
             }
             
         }
@@ -330,24 +331,32 @@ function New-ANCStudentUser {
         [string][Parameter(Mandatory)]$ShareServer
     )
 
+    Write-Verbose "New-ANCStudentUser`: Starting function..."
+
     $ADDomain = Get-ADDomain | Select-Object -ExpandProperty DNSRoot
     $givenName = Get-PCGivenName -PCName $PCFullName
     $SN = Get-PCSurName -PCName $PCFullName
     $displayName = "$givenName $SN"
     $username = New-ANCUserName -Prefix $UserPrefix -GivenName $givenName -SN $SN
+    Write-verbose "New-ANCStudentUser`: Got username $username"
     $usermail = "$username@$MailDomain"
     $UPN = "$username@$ADDomain"
     #$userPwd = $username
     #$userPwd = Get-ANCStudentPwd(8)
     $userPwd='Arvika2022'
 
+    Write-verbose "New-ANCStudentUser`: $username"
+
     try {
         New-ADUser -SamAccountName $username -Name $displayName -DisplayName $displayName -GivenName $givenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
     } catch [System.ServiceModel.FaultException] {
-        Write-Error "Caught specific error"
-    }catch {
         
-        Write-Error "Problem att skapa $username $userPwd"
+        #Write-Error "Caught specific error"
+        Write-Verbose "New-ANCStudentUser`: Caught specific error"
+    } catch {
+        
+        #Write-Error "New-ANCStudentUser`: Problem att skapa $username $userPwd"
+        Write-Verbose "New-ANCStudentUser`: Problem att skapa $username $userPwd"
     }
 
     # Ytterligare attribut
@@ -525,8 +534,12 @@ function New-ANCUserName {
     $inputGivenName = $GivenName.ToLower() | ConvertTo-ANCAlfaNumeric
     $inputSN = $SN.ToLower() | ConvertTo-ANCAlfaNumeric
 
+    Write-verbose "New-ANCUserName`: Input for Unique name $inputGivenName $inputSN"
+
     # Skapa användarnamnet baserat på för- och efternamn
-    $newUName = New-ANCUniqueName -GivenName $inputGivenName -SN $inputGivenName -Prefix $Prefix
+    $newUName = New-ANCUniqueName -GivenName $inputGivenName -SN $inputSN -Prefix $Prefix
+
+    Write-Verbose "New-ANCUserName`: Found user name $newUName"
 
     return $newUName
 
@@ -556,35 +569,45 @@ function New-ANCUniqueName {
         $tGN = $GivenName.Substring(0,2) + $GivenName[$GIndex]
         $tSN = Get-ANCUsernameSubstring -InputString $SN -Length $namePartLength
         $FinishedUsername = $Prefix + '.' + $tGN + '.' + $tSN
-        
+        Write-Verbose "New-ANCUniquename`: PSet GivenName candidate`: $FinishedUsername"
         # Kontrollera mot AD
-        if ( Find-ANCUser -ANCUserName $FinishedUsername ) {
+        if ( (Find-ANCUser -ANCUserName $FinishedUsername) ) {
+            Write-Verbose "New-ANCUniquename`: PSet GivenName`: $FinishedUsername found in Active Directory"
             $GIndex+=1
             $FinishedUsername = New-ANCUniqueName -GIndex $GIndex -Prefix $Prefix -GivenName $GivenName -SN $SN
         }
+
+        Write-Verbose "PSet GivenName`: $FinishedUsername not found in Active Directory"
 
     } elseif ( $SN.Length -ge ( $SIndex + 1 ) ) {
         # Skapa username med dubletthantering i efternamnet
         $tGN = Get-ANCUsernameSubstring -InputString $GivenName -Length $namePartLength
         $tSN = $SN.Substring(0,2) + $SN[$SIndex]
         $FinishedUsername = $Prefix + '.' + $tGN + '.' + $tSN
-        
+        Write-Verbose "PSet SN candidate`: $FinishedUsername"
         # Kontrollera mot AD
-        if ( Find-ANCUser -ANCUserName $FinishedUsername ) {
+        if ( (Find-ANCUser -ANCUserName $FinishedUsername) ) {
+            Write-Verbose "PSet SN`: $FinishedUsername found in Active Directory"
             $SIndex+=1
             $FinishedUsername = New-ANCUniqueName -SIndex $SIndex -Prefix $Prefix -GivenName $GivenName -SN $SN
         }
 
+        Write-Verbose "PSet SN`: $FinishedUsername not found in Active Directory"
+
     } elseif ( ( $GivenName.Length -lt $namePartLength ) -and ( $SN.Length -lt $namePartLength) ) {
         # Både för och efternamn korta, testa med för och efternamn
         $FinishedUsername = $Prefix + '.' + $GivenName + '.' + $SN
-        
+        Write-Verbose "PSet Kort candidate`: $FinishedUsername"
         # Kontrollera mot AD
-        if ( Find-ANCUser -ANCUserName $FinishedUsername ) {
+        if ( (Find-ANCUser -ANCUserName $FinishedUsername) ) {
+            Write-Verbose "PSet Kort`: $FinishedUsername found in Active Directory"
             # Föreslaget användarnamn finns, returnera tom sträng
             $FinishedUsername = ''
         }
+        Write-Verbose "PSet Kort`: $FinishedUsername not found in Active Directory"
     }
+
+    Write-Verbose "New-ANCUniqueName`: About to return $FinishedUsername"
 
     if ( $FinishedUsername -eq '' ) {
         # Fel, skapa en exception
@@ -602,11 +625,21 @@ function Find-ANCUser {
         [string]$ANCUserName
     )
 
-    $numUsers = Get-ADUser -Identity $ANCUserName | Measure-Object | Select-Object -ExpandProperty Count
+    Write-Verbose "Find-ANCUser`: Looking for username $ANCUserName"
+
+    try {
+        $numUsers = Get-ADUser -Identity $ANCUserName | Measure-Object | Select-Object -ExpandProperty Count
+    } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
+        # No user found, OK. Set $numUsers to 0
+        $numUsers = 0
+    }
+    
 
     if ( $numUsers -gt 0 ) {
+        Write-verbose "Find-ANCUser`: Found $numUsers with username $ANCUserName, returning `$true"
         return $true
     } else {
+        Write-verbose "Find-ANCUser`: Found $numUsers with username $ANCUserName, returning `$false"
         return $false
     }
 }
