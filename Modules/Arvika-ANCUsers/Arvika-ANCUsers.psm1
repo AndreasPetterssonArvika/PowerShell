@@ -144,15 +144,63 @@ function Get-ANCStudentDict {
 
 }
 
+# Funktionen sätter ett värde för identifieringsattributet baserat på ett tidigare attribut
+function Set-ANCUserIdentifier {
+    [cmdletbinding()]
+    param (
+        [Parameter( Mandatory = $true )]
+        [string]$UserIdentifier,
+        [Parameter( Mandatory = $true )]
+        [string]$OldUserIdentifier,
+        [Parameter(ValueFromPipeline)]
+        [Microsoft.ActiveDirectory.Management.ADUser]$ADUser
+    )
+
+    begin {}
+
+    process {
+        $newID = ConvertTo-IDKey12 -IDKey11 $ADUser.$OldUserIdentifier
+        $ADUser | Set-ADUser -replace @{$UserIdentifier="$newID"}
+    }
+
+    end {}
+}
+
 function ConvertTo-IDKey12 {
     [cmdletbinding()]
     param(
+        [Parameter(ParameterSetName = 'IDK11')]
         [string]$IDKey11,
+        [Parameter(ParameterSetName = 'IDK10')]
         [string]$IDKey10
     )
 
     $tKey = ''
 
+    if ( $PSCmdlet.ParameterSetName -eq 'IDK11') {
+
+        # Konvertera från 11 till 12 tecken
+        Write-Verbose "Converting $IDKey11"
+        $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey11.Substring(0,2))
+        $mmdd=$IDKey11.Substring(2,4)
+        $nums=$IDKey11.Substring(7,4)
+        $tKey="$year$mmdd$nums"
+
+    } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK10') {
+
+        # Konvertera från 10 till 12 tecken
+        Write-Verbose "Converting $IDKey10"
+        $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey10.Substring(0,2))
+        $mmdd=$IDKey10.Substring(2,4)
+        $nums=$IDKey10.Substring(6,4)
+        $tKey="$year$mmdd$nums"
+
+    } else {
+        # Okänt parmeterset
+        Write-Error "Unknown Parameterset"
+    }
+
+    <#
     if ( $IDKey11 ) {
         
         write-verbose "Converting $IDKey11"
@@ -169,6 +217,44 @@ function ConvertTo-IDKey12 {
         $nums=$IDKey10.Substring(6,4)
         $tKey="$year$mmdd$nums"
 
+    }
+    #>
+
+    return $tKey
+
+}
+
+function ConvertTo-IDKey11 {
+    [cmdletbinding()]
+    param(
+        [Parameter(ParameterSetName = 'IDK12')]
+        [string]$IDKey11,
+        [Parameter(ParameterSetName = 'IDK10')]
+        [string]$IDKey10
+    )
+
+    $IDKey11Sep='-'
+    $tKey = ''
+
+    if ( $PSCmdlet.ParameterSetName -eq 'IDK12') {
+
+        # Konvertera från 12 till 11 tecken
+        Write-Verbose "Converting $IDKey12"
+        $yymmdd=$IDKey12.Substring(2,6)
+        $nums=$IDKey12.Substring(7,4)
+        $tKey="$yymmdd$IDKey11Sep$nums"
+
+    } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK10') {
+
+        # Konvertera från 10 till 12 tecken
+        Write-Verbose "Converting $IDKey10"
+        $yymmdd=$IDKey10.Substring(0,6)
+        $nums=$IDKey10.Substring(6,4)
+        $tKey="$yymmdd$IDKey11Sep$nums"
+
+    } else {
+        # Okänt parmeterset
+        Write-Error "Unknown Parameterset"
     }
 
     return $tKey
@@ -729,4 +815,6 @@ Export-ModuleMember New-ANCUserName
 Export-ModuleMember Get-PCSurName
 Export-ModuleMember Get-PCGivenName
 export-moduleMember Get-ANCUserDict
+Export-ModuleMember ConvertTo-IDKey12
+export-moduleMember Set-ANCUserIdentifier
 #>
