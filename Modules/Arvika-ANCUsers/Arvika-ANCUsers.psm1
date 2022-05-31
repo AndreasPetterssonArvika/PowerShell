@@ -97,7 +97,21 @@ function Update-ANCVUXElever {
         $retireCandidates.Remove($oKey)
     }
     
-    
+    #<#
+    # TODO Möjlighet att avbryta här om det finns frågetecken?
+    $numNewUserCands = $newUserCandidates.Keys | Measure-Object | Select-Object -ExpandProperty Count
+    $numRetireCands = $retireCandidates.Keys | Measure-Object | Select-Object -ExpandProperty Count
+    $numRestoreCands = $restoreCandidates.Keys | Measure-Object | Select-Object -ExpandProperty Count
+    $numIDUpdateUsers = $updatedUsers.Keys | Measure-Object | Select-Object -ExpandProperty Count
+
+    $message = "`nKlar för uppdatering`:`n"
+    $message = $message + "Antal nya användare`: $numNewUserCands`n"
+    $message = $message + "Antal användare att låsa`: $numRetireCands`n"
+    $message = $message + "Antal användare att återställa`: $numRestoreCands`n"
+    $message = $message + "Antal användare där ID har uppdaterats`: $numIDUpdateUsers`n"
+    $message = $message + "`nTryck valfri tangent för att fortsätta eller Ctrl+C för att avbryta"
+    Read-Host -Prompt $message
+    #>
 
     #<#
     # Lås gamla konton, flytta till lås-OU
