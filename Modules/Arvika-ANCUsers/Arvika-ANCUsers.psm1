@@ -1,5 +1,9 @@
 <#
 Modul för att hantera ANC-användare
+Förutsätter en semikolonseparerad fil som innehåller följande ProCapita-fält:
+Skolform
+Namn på formen <Efternamn>, <Förnamn>
+Identifierare
 #>
 
 function Update-ANCVUXElever {
@@ -199,26 +203,6 @@ function ConvertTo-IDKey12 {
         # Okänt parmeterset
         Write-Error "Unknown Parameterset"
     }
-
-    <#
-    if ( $IDKey11 ) {
-        
-        write-verbose "Converting $IDKey11"
-        $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey11.Substring(0,2))
-        $mmdd=$IDKey11.Substring(2,4)
-        $nums=$IDKey11.Substring(7,4)
-        $tKey="$year$mmdd$nums"
-
-    } else {
-        
-        write-verbose "Converting $IDKey10"
-        $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey10.Substring(0,2))
-        $mmdd=$IDKey10.Substring(2,4)
-        $nums=$IDKey10.Substring(6,4)
-        $tKey="$year$mmdd$nums"
-
-    }
-    #>
 
     return $tKey
 
