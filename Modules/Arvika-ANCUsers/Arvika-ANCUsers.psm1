@@ -184,6 +184,29 @@ function Set-ANCUserIdentifier {
     end {}
 }
 
+function Set-ANCLabIdentifier {
+    [cmdletbinding()]
+    param (
+        [Parameter( Mandatory = $true )]
+        [string]$UserIdentifier,
+        [Parameter( Mandatory = $true )]
+        [string]$OldUserIdentifier,
+        [Parameter(ValueFromPipeline)]
+        [Microsoft.ActiveDirectory.Management.ADUser]$ADUser
+    )
+
+    begin {}
+
+    process {
+        $oldID = $ADUser.$OldUserIdentifier
+        write-verbose "Set-ANCLabIdentifier`: Converting $oldID"
+        $newID = ConvertTo-IDKey11 -IDKey12 $oldID
+        $ADUser | Set-ADUser -replace @{$UserIdentifier="$newID"}
+    }
+
+    end {}
+}
+
 function ConvertTo-IDKey12 {
     [cmdletbinding()]
     param(
@@ -226,7 +249,7 @@ function ConvertTo-IDKey11 {
     [cmdletbinding()]
     param(
         [Parameter(ParameterSetName = 'IDK12')]
-        [string]$IDKey11,
+        [string]$IDKey12,
         [Parameter(ParameterSetName = 'IDK10')]
         [string]$IDKey10
     )
@@ -815,4 +838,5 @@ Export-ModuleMember Get-PCGivenName
 export-moduleMember Get-ANCUserDict
 Export-ModuleMember ConvertTo-IDKey12
 export-moduleMember Set-ANCUserIdentifier
+export-moduleMember Set-ANCLabIdentifier
 #>
