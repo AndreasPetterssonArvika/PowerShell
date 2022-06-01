@@ -19,7 +19,8 @@ function Update-ANCVUXElever {
     [string][Parameter(Mandatory)]$MailDomain,
     [string][Parameter(Mandatory)]$UserScript,
     [string][Parameter(Mandatory)]$UserFolderPath,
-    [string][Parameter(Mandatory)]$ShareServer
+    [string][Parameter(Mandatory)]$ShareServer,
+    [string][Parameter(Mandatory)]$MailAttribute
 )
 
     Write-Verbose "Startar updatering av VUX-elever"
@@ -122,7 +123,7 @@ function Update-ANCVUXElever {
     #<#
     # Skapa nya konton med mapp
     $activeUserOU = "OU=VUXElever,OU=Test,$ldapDomain"
-    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $activeUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $activeUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
     #>
 
     #<#
@@ -396,7 +397,8 @@ function New-ANCStudentUsers {
         [string][parameter(Mandatory)]$MailDomain,
         [string][Parameter(Mandatory)]$UserScript,
         [string][Parameter(Mandatory)]$UserFolderPath,
-        [string][Parameter(Mandatory)]$ShareServer
+        [string][Parameter(Mandatory)]$ShareServer,
+        [string][Parameter(Mandatory)]$MailAttribute
     )
 
     $count=1
@@ -408,7 +410,7 @@ function New-ANCStudentUsers {
             $tKey = $row.IDKey
             Write-Verbose "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
             try {
-                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
             } catch [System.Management.Automation.RuntimeException] {
                 # Fel när användaren skulle skapas
                 Write-Verbose "New-ANCStudentUsers`: Fel när användaren skulle skapas"
@@ -435,7 +437,8 @@ function New-ANCStudentUser {
         [string][Parameter(Mandatory)]$StudentOU,
         [string][Parameter(Mandatory)]$UserScript,
         [string][Parameter(Mandatory)]$UserFolderPath,
-        [string][Parameter(Mandatory)]$ShareServer
+        [string][Parameter(Mandatory)]$ShareServer,
+        [string][Parameter(Mandatory)]$MailAttribute
     )
 
     Write-Verbose "New-ANCStudentUser`: Starting function..."
@@ -467,7 +470,7 @@ function New-ANCStudentUser {
     }
 
     # Ytterligare attribut
-    Set-ADUser -Identity $username -Replace @{employeeType='student';$UserIdentifier=$IDKey}
+    Set-ADUser -Identity $username -Replace @{employeeType='student';$UserIdentifier=$IDKey;$MailAttribute=$usermail}
 
     # Skapa delad mapp för elev, mappas via inloggningsskript
     New-ANCStudentFolder -sAMAccountName $username -UserFolderPath $UserFolderPath -ShareServer $ShareServer
