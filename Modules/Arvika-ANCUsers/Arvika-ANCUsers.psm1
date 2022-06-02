@@ -117,7 +117,7 @@ function Update-ANCVUXElever {
     #<#
     # Lås gamla konton, flytta till lås-OU
     $oldUserOU = "OU=Elever,OU=GamlaKonton,$ldapDomain"
-    Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $retireCandidates
+    Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $retireCandidates -UserIdentifier $UserIdentifier
     #>
 
     #<#
@@ -374,7 +374,8 @@ function Lock-ANCOldUsers {
     [cmdletbinding()]
     param(
         [string][Parameter(Mandatory)]$OldUserOU,
-        [hashtable][Parameter(Mandatory)]$OldUsers
+        [hashtable][Parameter(Mandatory)]$OldUsers,
+        [string][Parameter(Mandatory)]$UserIdentifier
     )
 
     foreach ( $key in $OldUsers.Keys ) {
@@ -842,4 +843,5 @@ export-moduleMember Get-ANCUserDict
 Export-ModuleMember ConvertTo-IDKey12
 export-moduleMember Set-ANCUserIdentifier
 export-moduleMember Set-ANCLabIdentifier
+Export-ModuleMember Lock-ANCOldUsers
 #>
