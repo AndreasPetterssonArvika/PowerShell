@@ -127,8 +127,9 @@ function Update-ANCVUXElever {
     # Återställ gamla användare som kommit tillbaka
     Restore-ANCStudentUsers -RestoreUserDict $restoreCandidates -ActiveUserOU $StudentOU -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
     #>
-
+    
     # Generera om möjligt de kopplade Worddokumenten för användarna
+    # Ska baseras på nya och återställda anvädnare
 
 }
 
@@ -833,6 +834,33 @@ function Get-PCGivenName {
     return $GN
 
 }
+
+<#
+Genererar en lista som underlag för användaruppgifterna
+#>
+<#
+function Get-ANCUserDocsList {
+    [cmdletbinding()]
+    param (
+        [string][Parameter(Mandatory)]$UserIdentifier,
+        [hashtable][Parameter()]$NewUsersDict,
+        [hashtable][Parameter()]$RestoredUsersDict,
+        [string][Parameter(Mandatory)]$OutFile,
+        [string][Parameter(Mandatory)]$DefaultSecret
+    )
+
+    # Skapa utdatafilen med rubriker
+    $FileHeaders = 'SNR;Fornamn;Efternamn;Anvandarnamn;Losenord'
+    $FileHeaders | Out-File -FilePath $OutFile
+
+    # Lägg till alla nya användare i listan
+    foreach ( $key in $NewUsersDict.Keys ) {
+        $ldapfilter="($UserIdentifier=$key)"
+        Get-ADUser -Ldapfilter $ldapfilter -Properties $UserIdentifier | ForEach-Object { "$_.personNummer;$_.givenName;$_.SN;$_.sAMAccountName;$DefaultSecret" | Out-File -FilePath $OutFile -Append }
+    }
+
+}
+#>
 
 Export-ModuleMember -Function Update-ANCVUXElever
 
