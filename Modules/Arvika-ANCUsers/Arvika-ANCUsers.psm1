@@ -30,8 +30,6 @@ function Update-ANCVUXElever {
 
     Write-Verbose "Startar updatering av VUX-elever"
 
-    $ldapDomain = (Get-ADRootDSE).defaultNamingContext
-
     # Importera elever från fil och skapa en dictionary
     # TODO Filtrera elever redan här?
     Write-Verbose "Path`: $ImportFile"
