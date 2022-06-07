@@ -7,7 +7,7 @@ Identifierare
 #>
 
 function Update-ANCVUXElever {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param (
     [string][Parameter(Mandatory)]$ImportFile,
     [char]$ImportDelim,
@@ -86,7 +86,7 @@ function Update-ANCVUXElever {
     # Genomför en matchning via en GridView och uppdatera elever som fått ändring i identifierare.
     # $updatedUsers innehåller nycklar för användare som blvit uppdaterade och kan 
     # tas bort ur dictionaries över gamla och nya användare.
-    $updatedUsers = $ANCMatchCandidates.Keys | Out-GridView -PassThru | Set-ANCNewID -UserIdentifier $UserIdentifier -Verbose
+    $updatedUsers = $ANCMatchCandidates.Keys | Out-GridView -PassThru | Set-ANCNewID -UserIdentifier $UserIdentifier -Verbose -WhatIf:$WhatIfPreference
     #>
 
     foreach ($key in $updatedUsers.Keys ) {
@@ -115,18 +115,18 @@ function Update-ANCVUXElever {
     #<#
     # Lås gamla konton, flytta till lås-OU
     $oldUserOU = "OU=Elever,OU=GamlaKonton,$ldapDomain"
-    Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $retireCandidates -UserIdentifier $UserIdentifier
+    Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $retireCandidates -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
     #>
 
     #<#
     # Skapa nya konton med mapp
     $activeUserOU = "OU=VUXElever,OU=Test,$ldapDomain"
-    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $activeUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $activeUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer -WhatIf:$WhatIfPreference
     #>
 
     #<#
     # Återställ gamla användare som kommit tillbaka
-    Restore-ANCStudentUsers -RestoreUserDict $restoreCandidates -ActiveUserOU $activeUserOU -UserIdentifier $UserIdentifier
+    Restore-ANCStudentUsers -RestoreUserDict $restoreCandidates -ActiveUserOU $activeUserOU -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
     #>
 
     # Generera om möjligt de kopplade Worddokumenten för användarna
@@ -143,14 +143,6 @@ function Get-ANCStudentDict {
     $retHash = @{}
 
     foreach ( $row in $StudentRows ) {
-
-        <#
-        # TODO Move to separate function
-        $year=(Get-Culture).Calendar.ToFourDigitYear($row.IDKey.Substring(0,2))
-        $mmdd=$row.IDKey.Substring(2,4)
-        $nums=$row.IDKey.Substring(7,4)
-        $tKey="$year$mmdd$nums"
-        #>
 
         $tKey = ConvertTo-IDKey12 -IDKey11 $row.IDKey
 
@@ -369,7 +361,7 @@ function Get-ANCRestoreUsers {
 }
 
 function Lock-ANCOldUsers {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param(
         [string][Parameter(Mandatory)]$OldUserOU,
         [hashtable][Parameter(Mandatory)]$OldUsers,
@@ -380,13 +372,17 @@ function Lock-ANCOldUsers {
         Write-Verbose "Gammal användare som ska låsas`: $key"
         $ldapFilter="($UserIdentifier=$key)"
         Write-Verbose "LDAP-filter`: $ldapfilter"
-        Get-ADUser -LDAPFilter $ldapfilter | Disable-ADAccount -PassThru | Move-ADObject -TargetPath $OldUserOU
+        $tName = $oldUsers[$key]
+        if ( $PSCmdlet.ShouldProcess("$key $tName") ) {
+            Get-ADUser -LDAPFilter $ldapfilter | Disable-ADAccount -PassThru | Move-ADObject -TargetPath $OldUserOU
+        }
+        
     }
 
 }
 
 function New-ANCStudentUsers {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]$UniqueStudents,
         [hashtable][Parameter(Mandatory)]$NewUserDict,
@@ -409,7 +405,7 @@ function New-ANCStudentUsers {
             $tKey = $row.IDKey
             Write-Verbose "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
             try {
-                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer -WhatIf:$WhatIfPreference
             } catch [System.Management.Automation.RuntimeException] {
                 # Fel när användaren skulle skapas
                 Write-Verbose "New-ANCStudentUsers`: Fel när användaren skulle skapas"
@@ -426,7 +422,7 @@ function New-ANCStudentUsers {
 }
 
 function New-ANCStudentUser {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param(
         [string][Parameter(Mandatory)]$PCFullName,
         [string][Parameter(Mandatory)]$IDKey,
@@ -449,29 +445,36 @@ function New-ANCStudentUser {
     $username = New-ANCUserName -Prefix $UserPrefix -GivenName $givenName -SN $SN
     Write-verbose "New-ANCStudentUser`: Got username $username"
     $UPN = "$username@$ADDomain"
-    #$userPwd = $username
-    #$userPwd = Get-ANCStudentPwd(8)
+    $usermail = "$username@$MailDomain"
     $userPwd='Arvika2022'
 
     Write-verbose "New-ANCStudentUser`: $username"
 
     try {
-        New-ADUser -SamAccountName $username -Name $displayName -DisplayName $displayName -GivenName $givenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
+        if ( $PSCmdlet.ShouldProcess("Skapar användaren $username",$username,'Skapa användare') ) {
+            New-ADUser -SamAccountName $username -Name $displayName -DisplayName $displayName -GivenName $givenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
+        }
+        
     } catch [System.ServiceModel.FaultException] {
         
-        #Write-Error "Caught specific error"
-        Write-Verbose "New-ANCStudentUser`: Caught specific error"
+        Write-Verbose "New-ANCStudentUser`: Caught a specific error $Error[0]"
+
     } catch {
         
-        #Write-Error "New-ANCStudentUser`: Problem att skapa $username $userPwd"
         Write-Verbose "New-ANCStudentUser`: Problem att skapa $username $userPwd"
     }
 
     # Ytterligare attribut
-    Set-ADUser -Identity $username -Replace @{employeeType='student';$UserIdentifier=$IDKey;$MailAttribute=$usermail}
+    if ( $PSCmdlet.ShouldProcess("Sätter attribut för $username",$username,'Sätter attribut') ) {
+        Set-ADUser -Identity $username -Replace @{employeeType='student';$UserIdentifier=$IDKey;$MailAttribute=$usermail}
+    }
+    
 
     # Skapa delad mapp för elev, mappas via inloggningsskript
-    New-ANCStudentFolder -sAMAccountName $username -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+    if ( $PSCmdlet.ShouldProcess("Skapar delad mapp för $username",$username,'Skapar delad mapp') ) {
+        New-ANCStudentFolder -sAMAccountName $username -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+    }
+    
 
 }
 
@@ -502,19 +505,19 @@ function New-ANCStudentFolder {
 }
 
 function Restore-ANCStudentUsers {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param(
         [hashtable][Parameter(Mandatory)]$RestoreUserDict,
         [string][Parameter(Mandatory)]$UserIdentifier,
         [string][Parameter(Mandatory)]$ActiveUserOU
     )
 
-    $RestoreUserDict.Keys | Restore-ANCStudentUser -UserIdentifier $UserIdentifier -ActiveUserOU $ActiveUserOU
+    $RestoreUserDict.Keys | Restore-ANCStudentUser -UserIdentifier $UserIdentifier -ActiveUserOU $ActiveUserOU -WhatIf:$WhatIfPreference
 
 }
 
 function Restore-ANCStudentUser {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param(
         [string][Parameter(ValueFromPipeline)]$UserKey,
         [string][Parameter(Mandatory)]$UserIdentifier,
@@ -526,7 +529,10 @@ function Restore-ANCStudentUser {
     process {
         Write-Verbose "Restore-ANCStudentUser`: Restoring user with $UserIdentifier $UserKey"
         $ldapFilter="($UserIdentifier=$UserKey)"
-        Get-ADUser -LDAPFilter $ldapFilter | Enable-ADAccount -PassThru | Move-ADObject -TargetPath $ActiveUserOU
+        if ($PSCmdlet.ShouldProcess("Återställer $UserKey",$UserKey,'Återställer användare') ) {
+            Get-ADUser -LDAPFilter $ldapFilter | Enable-ADAccount -PassThru | Move-ADObject -TargetPath $ActiveUserOU
+        }
+        
     }
 
     end {}
