@@ -155,7 +155,7 @@ function Get-ANCStudentDict {
 
 # Funktionen sätter ett värde för identifieringsattributet baserat på ett tidigare attribut
 function Set-ANCUserIdentifier {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param (
         [Parameter( Mandatory = $true )]
         [string]$UserIdentifier,
@@ -168,15 +168,19 @@ function Set-ANCUserIdentifier {
     begin {}
 
     process {
-        $newID = ConvertTo-IDKey12 -IDKey11 $ADUser.$OldUserIdentifier
-        $ADUser | Set-ADUser -replace @{$UserIdentifier="$newID"}
+        $IDKey11 = ($ADUser.$OldUserIdentifier)
+        $newID = ConvertTo-IDKey12 -IDKey11 $IDKey11
+        if ( $PSCmdlet.ShouldProcess("Sätter $newID baserat på $IDKey11",$ADUser.ToString(),'Sätter nytt värde för identifierare') ) {
+            $ADUser | Set-ADUser -replace @{$UserIdentifier="$newID"}
+        }
+        
     }
 
     end {}
 }
 
 function Set-ANCLabIdentifier {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param (
         [Parameter( Mandatory = $true )]
         [string]$UserIdentifier,
@@ -189,10 +193,14 @@ function Set-ANCLabIdentifier {
     begin {}
 
     process {
-        $oldID = $ADUser.$OldUserIdentifier
-        write-verbose "Set-ANCLabIdentifier`: Converting $oldID"
-        $newID = ConvertTo-IDKey11 -IDKey12 $oldID
-        $ADUser | Set-ADUser -replace @{$UserIdentifier="$newID"}
+        #$oldID = $ADUser.$OldUserIdentifier
+        $UID = $ADUser.$UserIdentifier
+        write-verbose "Set-ANCLabIdentifier`: Converting $UID"
+        $newID = ConvertTo-IDKey11 -IDKey12 $UID
+        if ( $PSCmdlet.ShouldProcess("Sätter $newID baserat på $UID",$ADUser.ToString(),'Sätter labbvärde') ) {
+
+        }
+        $ADUser | Set-ADUser -replace @{$OldUserIdentifier="$newID"}
     }
 
     end {}
@@ -253,7 +261,7 @@ function ConvertTo-IDKey11 {
         # Konvertera från 12 till 11 tecken
         Write-Verbose "Converting $IDKey12"
         $yymmdd=$IDKey12.Substring(2,6)
-        $nums=$IDKey12.Substring(7,4)
+        $nums=$IDKey12.Substring(8,4)
         $tKey="$yymmdd$IDKey11Sep$nums"
 
     } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK10') {
