@@ -25,8 +25,6 @@ function Update-ANCVUXElever {
 
     Write-Verbose "Startar updatering av VUX-elever"
 
-    $domain = $env:USERDOMAIN
-    $DNSDomain = $env:USERDNSDOMAIN
     $ldapDomain = (Get-ADRootDSE).defaultNamingContext
 
     # Importera elever från fil och skapa en dictionary
