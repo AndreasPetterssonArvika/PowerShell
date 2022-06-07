@@ -25,6 +25,9 @@ function Update-ANCVUXElever {
     [string][Parameter(Mandatory)]$OldStudentOU
 )
 
+    # Säkerhetsåtgärd, förhindrar alla förändringar även om -WhatIf explicit sätts till $false    
+    $WhatIfPreference=$true
+
     Write-Verbose "Startar updatering av VUX-elever"
 
     $ldapDomain = (Get-ADRootDSE).defaultNamingContext
