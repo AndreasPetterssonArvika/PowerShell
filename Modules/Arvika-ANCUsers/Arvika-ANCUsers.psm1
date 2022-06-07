@@ -448,7 +448,6 @@ function New-ANCStudentUser {
     $displayName = "$givenName $SN"
     $username = New-ANCUserName -Prefix $UserPrefix -GivenName $givenName -SN $SN
     Write-verbose "New-ANCStudentUser`: Got username $username"
-    $usermail = "$username@$MailDomain"
     $UPN = "$username@$ADDomain"
     #$userPwd = $username
     #$userPwd = Get-ANCStudentPwd(8)
