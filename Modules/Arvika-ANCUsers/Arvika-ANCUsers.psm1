@@ -20,7 +20,9 @@ function Update-ANCVUXElever {
     [string][Parameter(Mandatory)]$UserScript,
     [string][Parameter(Mandatory)]$UserFolderPath,
     [string][Parameter(Mandatory)]$ShareServer,
-    [string][Parameter(Mandatory)]$MailAttribute
+    [string][Parameter(Mandatory)]$MailAttribute,
+    [string][Parameter(Mandatory)]$StudentOU,
+    [string][Parameter(Mandatory)]$OldStudentOU
 )
 
     Write-Verbose "Startar updatering av VUX-elever"
@@ -45,9 +47,8 @@ function Update-ANCVUXElever {
     # Hämta elever från Active Directory och skapa en dictionary
     $ldapfilter = '(employeeType=student)'
     Write-Verbose "Current users LDAP-filter`: $ldapfilter"
-    $searchBase = "OU=VUXElever,OU=Test,$ldapDomain"
-    write-verbose "Current users searchBase`: $searchBase"
-    [hashtable]$activeUserDict = Get-ANCUserDict -SearchBase $searchBase -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
+    write-verbose "Current users searchBase`: $StudentOU"
+    [hashtable]$activeUserDict = Get-ANCUserDict -SearchBase $StudentOU -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
     #$activeUserDict.Keys
     #>
 
@@ -55,9 +56,8 @@ function Update-ANCVUXElever {
     # Hämta avstängda elever från Active Directory och skapa en dictinary
     $ldapfilter = '(employeeType=student)'
     Write-Verbose "Retired users LDAP-filter`: $ldapfilter"
-    $searchBase = "OU=Elever,OU=GamlaKonton,$ldapDomain"
-    write-verbose "Retired users searchBase`: $searchBase"
-    [hashtable]$retiredDict = Get-ANCUserDict -SearchBase $searchBase -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
+    write-verbose "Retired users searchBase`: $OldStudentOU"
+    [hashtable]$retiredDict = Get-ANCUserDict -SearchBase $OldStudentOU -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
     #>
 
     #<#
@@ -114,19 +114,17 @@ function Update-ANCVUXElever {
 
     #<#
     # Lås gamla konton, flytta till lås-OU
-    $oldUserOU = "OU=Elever,OU=GamlaKonton,$ldapDomain"
-    Lock-ANCOldUsers -OldUserOU $oldUserOU -OldUsers $retireCandidates -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
+    Lock-ANCOldUsers -OldUserOU $OldStudentOU -OldUsers $retireCandidates -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
     #>
 
     #<#
     # Skapa nya konton med mapp
-    $activeUserOU = "OU=VUXElever,OU=Test,$ldapDomain"
-    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $activeUserOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer -WhatIf:$WhatIfPreference
+    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $StudentOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer -WhatIf:$WhatIfPreference
     #>
 
     #<#
     # Återställ gamla användare som kommit tillbaka
-    Restore-ANCStudentUsers -RestoreUserDict $restoreCandidates -ActiveUserOU $activeUserOU -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
+    Restore-ANCStudentUsers -RestoreUserDict $restoreCandidates -ActiveUserOU $StudentOU -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
     #>
 
     # Generera om möjligt de kopplade Worddokumenten för användarna
