@@ -161,18 +161,47 @@ function Set-ANCUserIdentifier {
         [string]$UserIdentifier,
         [Parameter( Mandatory = $true )]
         [string]$OldUserIdentifier,
+        [Parameter( Mandatory = $true)]
+        [string]$LogFile,
         [Parameter(ValueFromPipeline)]
         [Microsoft.ActiveDirectory.Management.ADUser]$ADUser
     )
 
-    begin {}
+    begin {
+        if (!(Test-Path -Path $LogFile)) {
+            New-Item -Name $LogFile -ItemType File
+        }
+    }
 
     process {
-        $IDKey11 = ($ADUser.$OldUserIdentifier)
-        $newID = ConvertTo-IDKey12 -IDKey11 $IDKey11
-        if ( $PSCmdlet.ShouldProcess("Sätter $newID baserat på $IDKey11",$ADUser.ToString(),'Sätter nytt värde för identifierare') ) {
-            $ADUser | Set-ADUser -replace @{$UserIdentifier="$newID"}
+        $IDKey11 = $ADUser.$OldUserIdentifier
+        $tUsername = $ADUser.SamAccountName
+        $skip = $false
+        try {
+            $newID = ConvertTo-IDKey12 -IDKey11 $IDKey11
+        } catch [System.ArgumentOutOfRangeException] {
+            Write-Host "Användaren $tUsername saknar gammal identifierare."
+            $tUsername | Out-File -FilePath $LogFile -Append
+            $skip=$true
+        } catch {
+            Write-Error "Fel när användaren $tUsername skulle få nytt ID"
+            $skip=$true
         }
+
+        if ( $skip ) {
+            # Gör inget, användaren saknar gammal identifierare, alternativt fins något annat fel
+        } else {
+
+            if ( $PSCmdlet.ShouldProcess("Sätter $newID baserat på $IDKey11",$ADUser.ToString(),'Sätter nytt värde för identifierare') ) {
+            
+                Write-Verbose "Sätter ny identifierare för $tUsername"
+                $ADUser | Set-ADUser -replace @{$UserIdentifier="$newID"}
+    
+            }
+
+        }
+
+        
         
     }
 
