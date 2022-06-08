@@ -22,7 +22,8 @@ function Update-ANCVUXElever {
     [string][Parameter(Mandatory)]$ShareServer,
     [string][Parameter(Mandatory)]$MailAttribute,
     [string][Parameter(Mandatory)]$StudentOU,
-    [string][Parameter(Mandatory)]$OldStudentOU
+    [string][Parameter(Mandatory)]$OldStudentOU,
+    [switch][Parameter()]$ExportLockedUsers
 )
 
     # Säkerhetsåtgärd, förhindrar alla förändringar även om -WhatIf explicit sätts till $false    
@@ -32,6 +33,7 @@ function Update-ANCVUXElever {
 
     # Importera elever från fil och skapa en dictionary
     # TODO Filtrera elever redan här?
+    Write-Verbose "Läser in underlag från ProCapita"
     Write-Debug "Path`: $ImportFile"
     Write-Debug "Delimiter`: $ImportDelimiter"
     $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf8 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
@@ -84,7 +86,7 @@ function Update-ANCVUXElever {
     #<#
     # Hitta ev elever som kan ha fått en förändring i identifieraren
     [hashtable]$ANCMatchCandidates = Get-ANCMatchCandidates -NewUserDict $newUserCandidates -OldUserDict $retireCandidates -UserIdentifierPattern $UserIdentifierPattern -UserIdentifierPartialMatchLength $UserIdentifierPartialMatchLength
-    $ANCMatchCandidates.Keys
+    #$ANCMatchCandidates.Keys
     
     # Genomför en matchning via en GridView och uppdatera elever som fått ändring i identifierare.
     # $updatedUsers innehåller nycklar för användare som blvit uppdaterade och kan 
@@ -129,9 +131,14 @@ function Update-ANCVUXElever {
 
     #<#
     # Återställ gamla användare som kommit tillbaka
-    Write-Verbose "Återställ konton för användre som kommit tillbaka"
+    Write-Verbose "Återställ konton för användare som kommit tillbaka"
     Restore-ANCStudentUsers -RestoreUserDict $restoreCandidates -ActiveUserOU $StudentOU -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
     #>
+
+    # Exportera lista över låsta konton
+    if ( $ExportLockedUsers -and ( $retireCandidates.Count -gt 0) ) {
+        Export-LockedUsers -OldUserDict $retireCandidates -UserIdentifier $UserIdentifier
+    }
     
     # Generera om möjligt de kopplade Worddokumenten för användarna
     # Ska baseras på nya och återställda anvädnare
@@ -399,6 +406,30 @@ function Get-ANCRestoreUsers {
     }
 
     return $restDict
+
+}
+
+function Export-LockedUsers {
+    [cmdletbinding()]
+    param (
+        [hashtable][Parameter(Mandatory)]$OldUserDict,
+        [string][Parameter()]$UserIdentifier
+    )
+
+    $WhatIfPreference=$false
+
+    $now=(Get-date).ToString('yyMMdd HHmm')
+    $exportFile=".\LockedUsers $now.txt"
+
+    if (!(Test-path -Path $exportFile )) {
+        New-Item -Name $exportFile -ItemType File
+    }
+
+    Write-Verbose "Exporterar gamla användare"
+    foreach ( $key in $OldUserDict.Keys ) {
+        $ldapfilter="($UserIdentifier=$key)"
+        Get-ADUser -Ldapfilter $ldapFilter -Properties SN | Select-Object -Property sAMAccountName,givenName,SN | ConvertTo-Csv | Out-File -Path $exportFile -Append
+    }
 
 }
 
