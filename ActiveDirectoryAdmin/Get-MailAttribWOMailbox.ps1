@@ -26,17 +26,18 @@ $noGuidPattern = '^$'
 # Hämta lokalt domännamn
 $localDomain = ($env:USERDNSDOMAIN).ToLower()
 
-# LDAP-filter för användare med mailattributet satt til något som liknar en arvika.se-adress
+# LDAP-filter för användare med mailattributet satt til något som liknar en mail-adress
 $ldapfilter = "(mail=*@$localDomain)"
 Write-Debug $ldapfilter
 
 # Slå upp alla användare med mailadress i attributet mail, sålla fram de som inte har msExchMailboxGuid
 $adusers = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributeList | Where-Object { $_.msExchMailboxGuid -match $noGuidPattern}
 
-# Räkna antalet
+# Räkna antalet användare
 $numWOMailbox = $adusers | Measure-Object | select-object -ExpandProperty Count
 Write-Host "Det finns $numWOMailbox användare som har mailattributet satt, men ingen mailbox"
 
+# Om det finns ett angivet filnamn, skriv användare till filen
 if ( $OutFile ) {
     $OutFilePath = "$BaseFilePath\$OutFile"
     Write-Debug $OutFilePath
