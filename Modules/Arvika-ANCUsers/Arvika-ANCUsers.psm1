@@ -32,8 +32,8 @@ function Update-ANCVUXElever {
 
     # Importera elever från fil och skapa en dictionary
     # TODO Filtrera elever redan här?
-    Write-Verbose "Path`: $ImportFile"
-    Write-Verbose "Delimiter`: $ImportDelimiter"
+    Write-Debug "Path`: $ImportFile"
+    Write-Debug "Delimiter`: $ImportDelimiter"
     $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf8 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
     [hashtable]$studentDict = Get-ANCStudentDict -StudentRows $uniqueStudents
 
@@ -46,18 +46,20 @@ function Update-ANCVUXElever {
 
     #<#
     # Hämta elever från Active Directory och skapa en dictionary
+    Write-Verbose "Hämtar aktiva användare från Active Directory"
     $ldapfilter = '(employeeType=student)'
-    Write-Verbose "Current users LDAP-filter`: $ldapfilter"
-    write-verbose "Current users searchBase`: $StudentOU"
+    Write-Debug "Current users LDAP-filter`: $ldapfilter"
+    Write-Debug "Current users searchBase`: $StudentOU"
     [hashtable]$activeUserDict = Get-ANCUserDict -SearchBase $StudentOU -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
     #$activeUserDict.Keys
     #>
 
     #<#
     # Hämta avstängda elever från Active Directory och skapa en dictinary
+    Write-Verbose "Hämtar låsta användare från Active Directory"
     $ldapfilter = '(employeeType=student)'
-    Write-Verbose "Retired users LDAP-filter`: $ldapfilter"
-    write-verbose "Retired users searchBase`: $OldStudentOU"
+    Write-Debug "Retired users LDAP-filter`: $ldapfilter"
+    Write-Debug "Retired users searchBase`: $OldStudentOU"
     [hashtable]$retiredDict = Get-ANCUserDict -SearchBase $OldStudentOU -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
     #>
 
@@ -92,7 +94,7 @@ function Update-ANCVUXElever {
 
     foreach ($key in $updatedUsers.Keys ) {
         $oKey = $updatedUsers[$key]
-        Write-verbose "Keys to remove from new and old user dictionaries $key $oKey"
+        Write-Debug "Keys to remove from new and old user dictionaries $key $oKey"
         $newUserCandidates.Remove($key)
         $retireCandidates.Remove($oKey)
     }
@@ -115,16 +117,19 @@ function Update-ANCVUXElever {
 
     #<#
     # Lås gamla konton, flytta till lås-OU
+    Write-Verbose "Låser gamla konton"
     Lock-ANCOldUsers -OldUserOU $OldStudentOU -OldUsers $retireCandidates -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
     #>
 
     #<#
     # Skapa nya konton med mapp
+    Write-Verbose "Skapar nya konton"
     New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $StudentOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer -WhatIf:$WhatIfPreference
     #>
 
     #<#
     # Återställ gamla användare som kommit tillbaka
+    Write-Verbose "Återställ konton för användre som kommit tillbaka"
     Restore-ANCStudentUsers -RestoreUserDict $restoreCandidates -ActiveUserOU $StudentOU -UserIdentifier $UserIdentifier -WhatIf:$WhatIfPreference
     #>
     
@@ -139,7 +144,7 @@ function Get-ANCStudentDict {
         [Parameter()]$StudentRows
     )
 
-    Write-Verbose 'Skapar hashtable'
+    Write-Debug 'Skapar hashtable'
     $retHash = @{}
 
     foreach ( $row in $StudentRows ) {
@@ -194,7 +199,7 @@ function Set-ANCUserIdentifier {
 
             if ( $PSCmdlet.ShouldProcess("Sätter $newID baserat på $IDKey11",$ADUser.ToString(),'Sätter nytt värde för identifierare') ) {
             
-                Write-Verbose "Sätter ny identifierare för $tUsername"
+                Write-Debug "Sätter ny identifierare för $tUsername"
                 $ADUser | Set-ADUser -replace @{$UserIdentifier="$newID"}
     
             }
@@ -224,7 +229,7 @@ function Set-ANCLabIdentifier {
     process {
         #$oldID = $ADUser.$OldUserIdentifier
         $UID = $ADUser.$UserIdentifier
-        write-verbose "Set-ANCLabIdentifier`: Converting $UID"
+        Write-Debug "Set-ANCLabIdentifier`: Converting $UID"
         $newID = ConvertTo-IDKey11 -IDKey12 $UID
         if ( $PSCmdlet.ShouldProcess("Sätter $newID baserat på $UID",$ADUser.ToString(),'Sätter labbvärde') ) {
 
@@ -249,7 +254,7 @@ function ConvertTo-IDKey12 {
     if ( $PSCmdlet.ParameterSetName -eq 'IDK11') {
 
         # Konvertera från 11 till 12 tecken
-        Write-Verbose "Converting $IDKey11"
+        Write-Debug "Converting $IDKey11"
         $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey11.Substring(0,2))
         $mmdd=$IDKey11.Substring(2,4)
         $nums=$IDKey11.Substring(7,4)
@@ -258,7 +263,7 @@ function ConvertTo-IDKey12 {
     } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK10') {
 
         # Konvertera från 10 till 12 tecken
-        Write-Verbose "Converting $IDKey10"
+        Write-Debug "Converting $IDKey10"
         $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey10.Substring(0,2))
         $mmdd=$IDKey10.Substring(2,4)
         $nums=$IDKey10.Substring(6,4)
@@ -288,7 +293,7 @@ function ConvertTo-IDKey11 {
     if ( $PSCmdlet.ParameterSetName -eq 'IDK12') {
 
         # Konvertera från 12 till 11 tecken
-        Write-Verbose "Converting $IDKey12"
+        Write-Debug "Converting $IDKey12"
         $yymmdd=$IDKey12.Substring(2,6)
         $nums=$IDKey12.Substring(8,4)
         $tKey="$yymmdd$IDKey11Sep$nums"
@@ -296,7 +301,7 @@ function ConvertTo-IDKey11 {
     } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK10') {
 
         # Konvertera från 10 till 12 tecken
-        Write-Verbose "Converting $IDKey10"
+        Write-Debug "Converting $IDKey10"
         $yymmdd=$IDKey10.Substring(0,6)
         $nums=$IDKey10.Substring(6,4)
         $tKey="$yymmdd$IDKey11Sep$nums"
@@ -347,7 +352,7 @@ function Get-ANCOldUsers {
     }
 
     foreach ( $key in $oldUsers.Keys ) {
-        Write-Verbose "Old user`: $key"
+        Write-Debug "Old user`: $key"
     }
 
     return $oldUsers
@@ -406,9 +411,9 @@ function Lock-ANCOldUsers {
     )
 
     foreach ( $key in $OldUsers.Keys ) {
-        Write-Verbose "Gammal användare som ska låsas`: $key"
+        Write-Debug "Gammal användare som ska låsas`: $key"
         $ldapFilter="($UserIdentifier=$key)"
-        Write-Verbose "LDAP-filter`: $ldapfilter"
+        Write-Debug "LDAP-filter`: $ldapfilter"
         $tName = $oldUsers[$key]
         if ( $PSCmdlet.ShouldProcess("$key $tName") ) {
             Get-ADUser -LDAPFilter $ldapfilter | Disable-ADAccount -PassThru | Move-ADObject -TargetPath $OldUserOU
@@ -436,16 +441,16 @@ function New-ANCStudentUsers {
     $count=1
     $maxCount = 9
 
-    foreach ( $row in $UniqueStudents )  {   #Write-Verbose "New user row`: $row"
+    foreach ( $row in $UniqueStudents )  {   #Write-Debug "New user row`: $row"
         if ( $NewUserDict.ContainsKey($row.IDKey) ) {
             $tFullName = $row.Namn
             $tKey = $row.IDKey
-            Write-Verbose "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
+            Write-Debug "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
             try {
                 New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer -WhatIf:$WhatIfPreference
             } catch [System.Management.Automation.RuntimeException] {
                 # Fel när användaren skulle skapas
-                Write-Verbose "New-ANCStudentUsers`: Fel när användaren skulle skapas"
+                Write-Debug "New-ANCStudentUsers`: Fel när användaren skulle skapas"
             }
             
         }
@@ -473,19 +478,19 @@ function New-ANCStudentUser {
         [string][Parameter(Mandatory)]$MailAttribute
     )
 
-    Write-Verbose "New-ANCStudentUser`: Starting function..."
+    Write-Debug "New-ANCStudentUser`: Starting function..."
 
     $ADDomain = Get-ADDomain | Select-Object -ExpandProperty DNSRoot
     $givenName = Get-PCGivenName -PCName $PCFullName
     $SN = Get-PCSurName -PCName $PCFullName
     $displayName = "$givenName $SN"
     $username = New-ANCUserName -Prefix $UserPrefix -GivenName $givenName -SN $SN
-    Write-verbose "New-ANCStudentUser`: Got username $username"
+    Write-Debug "New-ANCStudentUser`: Got username $username"
     $UPN = "$username@$ADDomain"
     $usermail = "$username@$MailDomain"
     $userPwd='Arvika2022'
 
-    Write-verbose "New-ANCStudentUser`: $username"
+    Write-Debug "New-ANCStudentUser`: $username"
 
     try {
         if ( $PSCmdlet.ShouldProcess("Skapar användaren $username",$username,'Skapa användare') ) {
@@ -494,11 +499,11 @@ function New-ANCStudentUser {
         
     } catch [System.ServiceModel.FaultException] {
         
-        Write-Verbose "New-ANCStudentUser`: Caught a specific error $Error[0]"
+        Write-Debug "New-ANCStudentUser`: Caught a specific error $Error[0]"
 
     } catch {
         
-        Write-Verbose "New-ANCStudentUser`: Problem att skapa $username $userPwd"
+        Write-Debug "New-ANCStudentUser`: Problem att skapa $username $userPwd"
     }
 
     # Ytterligare attribut
@@ -564,7 +569,7 @@ function Restore-ANCStudentUser {
     begin {}
 
     process {
-        Write-Verbose "Restore-ANCStudentUser`: Restoring user with $UserIdentifier $UserKey"
+        Write-Debug "Restore-ANCStudentUser`: Restoring user with $UserIdentifier $UserKey"
         $ldapFilter="($UserIdentifier=$UserKey)"
         if ($PSCmdlet.ShouldProcess("Återställer $UserKey",$UserKey,'Återställer användare') ) {
             Get-ADUser -LDAPFilter $ldapFilter | Enable-ADAccount -PassThru | Move-ADObject -TargetPath $ActiveUserOU
@@ -597,21 +602,21 @@ function Get-ANCMatchCandidates {
         [string][Parameter(Mandatory)]$UserIdentifierPartialMatchLength
     )
 
-    Write-Verbose 'Starting looking for possible ID changes...'
+    Write-Debug 'Starting looking for possible ID changes...'
 
     $keyMatches = @{}
 
     foreach ( $oKey in $oldUserDict.Keys ) {
-        Write-Verbose "Get-ANCMatchCandidates`: Old user $oKey"
+        Write-Debug "Get-ANCMatchCandidates`: Old user $oKey"
         if ( $oKey -notmatch $UserIdentifierPattern ) {
             $oName = $oldUserDict[$oKey]
-            Write-Verbose "Get-ANCMatchCandidates`: Found incomplete match $oName $oKey"
+            Write-Debug "Get-ANCMatchCandidates`: Found incomplete match $oName $oKey"
             $tDate = $oKey.Substring(0,$UserIdentifierPartialMatchLength)
             $tPattern = "^$tDate[\d]{4}$"
-            Write-Verbose "Get-ANCMatchCandidates`: Looking for matches on partial pattern $tPattern"
+            Write-Debug "Get-ANCMatchCandidates`: Looking for matches on partial pattern $tPattern"
             foreach ( $nKey in $newUserDict.Keys ) {
                 if ( $nKey -match $tPattern ) {
-                    Write-verbose "Get-ANCMatchCandidates`: Found match candidate $nKey"
+                    Write-Debug "Get-ANCMatchCandidates`: Found match candidate $nKey"
                     $keyMatches.Add($nKey,$oKey)
                 }
             }
@@ -631,7 +636,7 @@ function Get-ANCMatchCandidates {
             OldKey = $oKey
             OldName = $oName
         }
-        Write-Verbose "Get-ANCMatchCandidates`: Found possible match $nName $nKey"
+        Write-Debug "Get-ANCMatchCandidates`: Found possible match $nName $nKey"
 
         $possibleMatches.Add($tCand,'candidate')
     }
@@ -655,7 +660,7 @@ function Set-ANCNewID {
         $nKey = $MatchObject.NewKey
         $oKey = $MatchObject.OldKey
         $nName = $MatchObject.NewName
-        Write-Verbose "$nName byter ID från $oKey till $nKey"
+        Write-Debug "$nName byter ID från $oKey till $nKey"
 
         if ( $PSCmdlet.ShouldProcess($nName)) {
             $ldapfilter="($UserIdentifier=$oKey)"
@@ -685,12 +690,12 @@ function New-ANCUserName {
     $inputGivenName = $GivenName.ToLower() | ConvertTo-ANCAlfaNumeric
     $inputSN = $SN.ToLower() | ConvertTo-ANCAlfaNumeric
 
-    Write-verbose "New-ANCUserName`: Input for Unique name $inputGivenName $inputSN"
+    Write-Debug "New-ANCUserName`: Input for Unique name $inputGivenName $inputSN"
 
     # Skapa användarnamnet baserat på för- och efternamn
     $newUName = New-ANCUniqueName -GivenName $inputGivenName -SN $inputSN -Prefix $Prefix
 
-    Write-Verbose "New-ANCUserName`: Found user name $newUName"
+    Write-Debug "New-ANCUserName`: Found user name $newUName"
 
     return $newUName
 
@@ -720,45 +725,45 @@ function New-ANCUniqueName {
         $tGN = $GivenName.Substring(0,2) + $GivenName[$GIndex]
         $tSN = Get-ANCUsernameSubstring -InputString $SN -Length $namePartLength
         $FinishedUsername = $Prefix + '.' + $tGN + '.' + $tSN
-        Write-Verbose "New-ANCUniquename`: PSet GivenName candidate`: $FinishedUsername"
+        Write-Debug "New-ANCUniquename`: PSet GivenName candidate`: $FinishedUsername"
         # Kontrollera mot AD
         if ( (Find-ANCUser -ANCUserName $FinishedUsername) ) {
-            Write-Verbose "New-ANCUniquename`: PSet GivenName`: $FinishedUsername found in Active Directory"
+            Write-Debug "New-ANCUniquename`: PSet GivenName`: $FinishedUsername found in Active Directory"
             $GIndex+=1
             $FinishedUsername = New-ANCUniqueName -GIndex $GIndex -Prefix $Prefix -GivenName $GivenName -SN $SN
         }
 
-        Write-Verbose "PSet GivenName`: $FinishedUsername not found in Active Directory"
+        Write-Debug "PSet GivenName`: $FinishedUsername not found in Active Directory"
 
     } elseif ( $SN.Length -ge ( $SIndex + 1 ) ) {
         # Skapa username med dubletthantering i efternamnet
         $tGN = Get-ANCUsernameSubstring -InputString $GivenName -Length $namePartLength
         $tSN = $SN.Substring(0,2) + $SN[$SIndex]
         $FinishedUsername = $Prefix + '.' + $tGN + '.' + $tSN
-        Write-Verbose "PSet SN candidate`: $FinishedUsername"
+        Write-Debug "PSet SN candidate`: $FinishedUsername"
         # Kontrollera mot AD
         if ( (Find-ANCUser -ANCUserName $FinishedUsername) ) {
-            Write-Verbose "PSet SN`: $FinishedUsername found in Active Directory"
+            Write-Debug "PSet SN`: $FinishedUsername found in Active Directory"
             $SIndex+=1
             $FinishedUsername = New-ANCUniqueName -SIndex $SIndex -Prefix $Prefix -GivenName $GivenName -SN $SN
         }
 
-        Write-Verbose "PSet SN`: $FinishedUsername not found in Active Directory"
+        Write-Debug "PSet SN`: $FinishedUsername not found in Active Directory"
 
     } elseif ( ( $GivenName.Length -lt $namePartLength ) -and ( $SN.Length -lt $namePartLength) ) {
         # Både för och efternamn korta, testa med för och efternamn
         $FinishedUsername = $Prefix + '.' + $GivenName + '.' + $SN
-        Write-Verbose "PSet Kort candidate`: $FinishedUsername"
+        Write-Debug "PSet Kort candidate`: $FinishedUsername"
         # Kontrollera mot AD
         if ( (Find-ANCUser -ANCUserName $FinishedUsername) ) {
-            Write-Verbose "PSet Kort`: $FinishedUsername found in Active Directory"
+            Write-Debug "PSet Kort`: $FinishedUsername found in Active Directory"
             # Föreslaget användarnamn finns, returnera tom sträng
             $FinishedUsername = ''
         }
-        Write-Verbose "PSet Kort`: $FinishedUsername not found in Active Directory"
+        Write-Debug "PSet Kort`: $FinishedUsername not found in Active Directory"
     }
 
-    Write-Verbose "New-ANCUniqueName`: About to return $FinishedUsername"
+    Write-Debug "New-ANCUniqueName`: About to return $FinishedUsername"
 
     if ( $FinishedUsername -eq '' ) {
         # Fel, skapa en exception
@@ -776,7 +781,7 @@ function Find-ANCUser {
         [string]$ANCUserName
     )
 
-    Write-Verbose "Find-ANCUser`: Looking for username $ANCUserName"
+    Write-Debug "Find-ANCUser`: Looking for username $ANCUserName"
 
     try {
         $numUsers = Get-ADUser -Identity $ANCUserName | Measure-Object | Select-Object -ExpandProperty Count
@@ -787,10 +792,10 @@ function Find-ANCUser {
     
 
     if ( $numUsers -gt 0 ) {
-        Write-verbose "Find-ANCUser`: Found $numUsers with username $ANCUserName, returning `$true"
+        Write-Debug "Find-ANCUser`: Found $numUsers with username $ANCUserName, returning `$true"
         return $true
     } else {
-        Write-verbose "Find-ANCUser`: Found $numUsers with username $ANCUserName, returning `$false"
+        Write-Debug "Find-ANCUser`: Found $numUsers with username $ANCUserName, returning `$false"
         return $false
     }
 }
