@@ -23,7 +23,7 @@ function Update-ANCVUXElever {
     [string][Parameter(Mandatory)]$MailAttribute,
     [string][Parameter(Mandatory)]$StudentOU,
     [string][Parameter(Mandatory)]$OldStudentOU,
-    [switch][Parameter()]$ExportLockedUsers
+    [switch][Parameter()]$ExportUserLists
 )
 
     # Säkerhetsåtgärd, förhindrar alla förändringar även om -WhatIf explicit sätts till $false    
@@ -136,8 +136,18 @@ function Update-ANCVUXElever {
     #>
 
     # Exportera lista över låsta konton
-    if ( $ExportLockedUsers -and ( $retireCandidates.Count -gt 0) ) {
-        Export-LockedUsers -OldUserDict $retireCandidates -UserIdentifier $UserIdentifier
+    if ( $ExportUserLists -and ( $retireCandidates.Count -gt 0) ) {
+        Export-Users -UserDict $retireCandidates -UserIdentifier $UserIdentifier -BaseFileName "LockedUsers"
+    }
+
+    # Exportera lista över nya konton
+    if ( $ExportUserLists -and ( $newUserCandidates.Count -gt 0) ) {
+        Export-Users -UserDict $newUserCandidates -UserIdentifier $UserIdentifier -BaseFileName "NewUsers"
+    }
+
+    # Exportera lista över återställda konton
+    if ( $ExportUserLists -and ( $restoreCandidates.Count -gt 0) ) {
+        Export-Users -UserDict $restoreCandidates -UserIdentifier $UserIdentifier -BaseFileName "RestoredUsers"
     }
     
     # Generera om möjligt de kopplade Worddokumenten för användarna
@@ -334,7 +344,9 @@ function Get-ANCUserDict {
 
     $ADUserDict = @{}
 
-    Get-ADUser -SearchBase $SearchBase -LDAPFilter $Ldapfilter -Properties $attributes | Select-Object -Property $attributes | ForEach-Object { $ADUserDict.Add($_.$UserIdentifier,$_.sAMAccountName) }
+    $emptyPattern='^$'
+
+    Get-ADUser -SearchBase $SearchBase -LDAPFilter $Ldapfilter -Properties $attributes | Where-Object {  $_.$UserIdentifier -notmatch $emptyPattern } | Select-Object -Property $attributes | ForEach-Object { $ADUserDict.Add($_.$UserIdentifier,$_.sAMAccountName) }
 
     return $ADUserDict
 
@@ -379,7 +391,7 @@ function Get-ANCNewUsers {
         if ( $CurrentUsers.ContainsKey($key) ) {
             # Matchning, gör inget
         } else {
-            # Ej matchning, gammal användare
+            # Ej matchning, ny användare
             $newUsers.Add($key,$ImportStudents[$key])
         }
     }
@@ -409,24 +421,25 @@ function Get-ANCRestoreUsers {
 
 }
 
-function Export-LockedUsers {
+function Export-Users {
     [cmdletbinding()]
     param (
-        [hashtable][Parameter(Mandatory)]$OldUserDict,
-        [string][Parameter()]$UserIdentifier
+        [hashtable][Parameter(Mandatory)]$UserDict,
+        [string][Parameter(Mandatory)]$UserIdentifier,
+        [string][Parameter(Mandatory)]$BaseFileName
     )
 
     $WhatIfPreference=$false
 
     $now=(Get-date).ToString('yyMMdd HHmm')
-    $exportFile=".\LockedUsers $now.txt"
+    $exportFile=".\$BaseFileName $now.txt"
 
     if (!(Test-path -Path $exportFile )) {
-        New-Item -Name $exportFile -ItemType File
+        New-Item -Name $exportFile -ItemType File | Out-Null
     }
 
-    Write-Verbose "Exporterar gamla användare"
-    foreach ( $key in $OldUserDict.Keys ) {
+    Write-Verbose "Exporterar användare till $exportFile"
+    foreach ( $key in $UserDict.Keys ) {
         $ldapfilter="($UserIdentifier=$key)"
         Get-ADUser -Ldapfilter $ldapFilter -Properties SN | Select-Object -Property sAMAccountName,givenName,SN | ConvertTo-Csv | Out-File -Path $exportFile -Append
     }
