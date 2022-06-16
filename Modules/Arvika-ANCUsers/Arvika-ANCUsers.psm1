@@ -137,11 +137,15 @@ function Update-ANCVUXElever {
 
     # Exportera lista över låsta konton
     if ( $ExportUserLists -and ( $retireCandidates.Count -gt 0) ) {
+        $numOld = $retireCandidates.Count
+        Write-Verbose "Antal gamla användare`: $numOld"
         Export-Users -UserDict $retireCandidates -UserIdentifier $UserIdentifier -BaseFileName "LockedUsers"
     }
 
     # Exportera lista över nya konton
     if ( $ExportUserLists -and ( $newUserCandidates.Count -gt 0) ) {
+        $numNew = $newUserCandidates.Count
+        Write-Verbose "Antal nya användare`: $numNew"
         Export-Users -UserDict $newUserCandidates -UserIdentifier $UserIdentifier -BaseFileName "NewUsers"
     }
 
@@ -167,8 +171,8 @@ function Get-ANCStudentDict {
     foreach ( $row in $StudentRows ) {
 
         $tKey = ConvertTo-IDKey12 -IDKey11 $row.IDKey
-
-        $retHash.Add($tKey,$row.Namn)
+        $tName = $row.Namn
+        $retHash.Add($tKey,$tName)
     }
 
     return $retHash
@@ -387,12 +391,21 @@ function Get-ANCNewUsers {
     
     $newUsers=@{}
 
+    Write-Verbose "Get-ANCNewUsers list current keys"
+    foreach ( $key in $CurrentUsers.Keys ) {
+        Write-Verbose "Get-ANCNewUsers`: $key"
+    }
+
     foreach ( $key in $ImportStudents.Keys ) {
+        Write-Verbose "Get-ANCNewUsers imported student key`: $key"
         if ( $CurrentUsers.ContainsKey($key) ) {
             # Matchning, gör inget
+            Write-Verbose "Get-ANCNewUsers found imported key among active users"
         } else {
             # Ej matchning, ny användare
-            $newUsers.Add($key,$ImportStudents[$key])
+            $tName = $ImportStudents[$key]
+            Write-Verbose "Get-ANCNewUsers`: $key $tName"
+            $newUsers.Add($key,$tName)
         }
     }
 
@@ -440,8 +453,15 @@ function Export-Users {
 
     Write-Verbose "Exporterar användare till $exportFile"
     foreach ( $key in $UserDict.Keys ) {
+        Write-Verbose "Export-Users key value`: $key"
         $ldapfilter="($UserIdentifier=$key)"
-        Get-ADUser -Ldapfilter $ldapFilter -Properties SN | Select-Object -Property sAMAccountName,givenName,SN | ConvertTo-Csv | Out-File -Path $exportFile -Append
+        #Get-ADUser -Ldapfilter $ldapFilter -Properties SN | Select-Object -Property sAMAccountName,givenName,SN | ConvertTo-Csv | Out-File -Path $exportFile -Append
+        $userData = Get-ADUser -Ldapfilter $ldapFilter -Properties SN | Select-Object -Property sAMAccountName,givenName,SN
+        $sam = $userData.sAMAccountName
+        $gn = $userData.givenName
+        $sn = $userData.SN
+        $fileRow = "$key;$sam;$gn;$sn"
+        $fileRow | Out-File -FilePath $exportFile -Append
     }
 
 }
@@ -482,9 +502,6 @@ function New-ANCStudentUsers {
         [string][Parameter(Mandatory)]$MailAttribute
     )
 
-    $count=1
-    $maxCount = 9
-
     foreach ( $row in $UniqueStudents )  {   #Write-Debug "New user row`: $row"
         if ( $NewUserDict.ContainsKey($row.IDKey) ) {
             $tFullName = $row.Namn
@@ -497,10 +514,6 @@ function New-ANCStudentUsers {
                 Write-Debug "New-ANCStudentUsers`: Fel när användaren skulle skapas"
             }
             
-        }
-        $count+=1
-        if ( $count -gt $maxCount ) {
-            BREAK
         }
         
     }
