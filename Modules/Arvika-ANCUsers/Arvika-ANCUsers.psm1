@@ -546,6 +546,7 @@ function New-ANCStudentUser {
     $UPN = "$username@$ADDomain"
     $usermail = "$username@$MailDomain"
     $userPwd='Arvika2022'
+    #$userPwd=$username
 
     Write-Debug "New-ANCStudentUser`: $username"
 
@@ -934,6 +935,28 @@ function Get-PCGivenName {
 
 }
 
+function Get-ANCUsersFromIDList {
+    [cmdletbinding()]
+    param (
+        [string][Parameter(Mandatory)]$OldIDListPath,
+        [string][Parameter(Mandatory)]$UserIdentifier,
+        [string][Parameter(Mandatory)]$OldUserIdentifier,
+        [string][Parameter(Mandatory)]$OutFile
+    )
+
+    # Hämta lista med identifierare
+    $OldIDList = Import-Csv -Path $infile -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
+
+    'displayName;sAMAccountName' | Out-File -FilePath $OutFile
+
+    foreach ( $OldID in $OldIDList ) {
+        $UID = ConvertTo-IDKey12 -IDKey11 $OldID
+        $ldapfilter = "($UserIdentifier=$UID)"
+        Get-ADUser -LDAPFilter $ldapfilter -Properties displayName,sAMAccountName | Select-Object -Property displayName,sAMAccountName | Out-File -FilePath $OutFile -Append
+    }
+
+}
+
 <#
 Genererar en lista som underlag för användaruppgifterna
 #>
@@ -973,4 +996,5 @@ Export-ModuleMember ConvertTo-IDKey12
 export-moduleMember Set-ANCUserIdentifier
 export-moduleMember Set-ANCLabIdentifier
 Export-ModuleMember Lock-ANCOldUsers
+Export-ModuleMember Get-ANCUsersFromIDList
 #>
