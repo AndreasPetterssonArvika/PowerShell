@@ -947,13 +947,30 @@ function Get-ANCUsersFromIDList {
     # Hämta lista med identifierare
     $OldIDList = Import-Csv -Path $infile -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
 
-    'displayName;sAMAccountName' | Out-File -FilePath $OutFile
+    "$UserIdentifier;SN;givenName;sAMAccountName;displayName" | Out-File -FilePath $OutFile
+
+    $attributes = @($UserIdentifier,'SN','givenName','sAMAccountName','displayName')
 
     foreach ( $OldID in $OldIDList ) {
         $UID = ConvertTo-IDKey12 -IDKey11 $OldID
         $ldapfilter = "($UserIdentifier=$UID)"
-        Get-ADUser -LDAPFilter $ldapfilter -Properties displayName,sAMAccountName | Select-Object -Property displayName,sAMAccountName | Out-File -FilePath $OutFile -Append
+        Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
     }
+
+}
+
+function Get-ANCGSEUsers {
+    [cmdletbinding()]
+    param (
+        [string][Parameter(Mandatory)]$BaseOU,
+        [string][Parameter(Mandatory)]$OutFile
+    )
+
+    'sAMAccountName;displayName;SN;givenName' | Out-File -FilePath $OutFile
+
+    $attributes = @('sAMAccountName';'displayName';'SN';'givenName')
+
+    Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
 
 }
 
@@ -997,4 +1014,5 @@ export-moduleMember Set-ANCUserIdentifier
 export-moduleMember Set-ANCLabIdentifier
 Export-ModuleMember Lock-ANCOldUsers
 Export-ModuleMember Get-ANCUsersFromIDList
+Export-ModuleMember Get-ANCGSEUsers
 #>
