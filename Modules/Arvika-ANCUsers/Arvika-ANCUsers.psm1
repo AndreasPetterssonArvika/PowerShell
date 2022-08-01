@@ -945,7 +945,7 @@ function Get-ANCUsersFromIDList {
     )
 
     # Hämta lista med identifierare
-    $OldIDList = Import-Csv -Path $infile -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
+    $OldIDList = Import-Csv -Path $OldIDListPath -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
 
     "$UserIdentifier;SN;givenName;sAMAccountName;displayName" | Out-File -FilePath $OutFile
 
