@@ -36,7 +36,7 @@ function Update-ANCVUXElever {
     Write-Verbose "Läser in underlag från ProCapita"
     Write-Debug "Path`: $ImportFile"
     Write-Debug "Delimiter`: $ImportDelimiter"
-    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf8 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
+    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf7 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
     [hashtable]$studentDict = Get-ANCStudentDict -StudentRows $uniqueStudents
 
     #<#
