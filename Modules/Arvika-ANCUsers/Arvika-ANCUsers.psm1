@@ -974,6 +974,21 @@ function Get-ANCGSEUsers {
 
 }
 
+function Get-ANCAllUsers {
+    [cmdletbinding()]
+    param (
+        [string][Parameter(Mandatory)]$BaseOU,
+        [string][Parameter(Mandatory)]$OutFile,
+        [string][Parameter(Mandatory)]$UserIdentifier
+    )
+
+    "$UserIdentifier;sAMAccountName;displayName;SN;givenName" | Out-File -FilePath $OutFile
+
+    $attributes = @($UserIdentifier;'sAMAccountName';'displayName';'SN';'givenName')
+
+    Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
+}
+
 <#
 Genererar en lista som underlag för användaruppgifterna
 #>
@@ -1015,4 +1030,5 @@ export-moduleMember Set-ANCLabIdentifier
 Export-ModuleMember Lock-ANCOldUsers
 Export-ModuleMember Get-ANCUsersFromIDList
 Export-ModuleMember Get-ANCGSEUsers
+Export-ModuleMember Get-ANCAllUsers
 #>
