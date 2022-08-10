@@ -27,7 +27,7 @@ function Update-ANCVUXElever {
 )
 
     # Säkerhetsåtgärd, förhindrar alla förändringar även om -WhatIf explicit sätts till $false    
-    $WhatIfPreference=$true
+    #$WhatIfPreference=$true
 
     Write-Verbose "Startar updatering av VUX-elever"
 
