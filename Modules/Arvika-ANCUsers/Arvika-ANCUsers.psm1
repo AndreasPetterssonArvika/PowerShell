@@ -545,8 +545,8 @@ function New-ANCStudentUser {
     Write-Debug "New-ANCStudentUser`: Got username $username"
     $UPN = "$username@$ADDomain"
     $usermail = "$username@$MailDomain"
-    $userPwd='Arvika2022'
-    #$userPwd=$username
+    #$userPwd='Arvika2022'
+    $userPwd=$username
 
     Write-Debug "New-ANCStudentUser`: $username"
 
