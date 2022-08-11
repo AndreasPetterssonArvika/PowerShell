@@ -27,7 +27,7 @@ function Update-ANCVUXElever {
 )
 
     # Säkerhetsåtgärd, förhindrar alla förändringar även om -WhatIf explicit sätts till $false    
-    $WhatIfPreference=$true
+    #$WhatIfPreference=$true
 
     Write-Verbose "Startar updatering av VUX-elever"
 
@@ -36,7 +36,7 @@ function Update-ANCVUXElever {
     Write-Verbose "Läser in underlag från ProCapita"
     Write-Debug "Path`: $ImportFile"
     Write-Debug "Delimiter`: $ImportDelimiter"
-    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf8 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
+    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf7 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
     [hashtable]$studentDict = Get-ANCStudentDict -StudentRows $uniqueStudents
 
     #<#
@@ -545,8 +545,8 @@ function New-ANCStudentUser {
     Write-Debug "New-ANCStudentUser`: Got username $username"
     $UPN = "$username@$ADDomain"
     $usermail = "$username@$MailDomain"
-    $userPwd='Arvika2022'
-    #$userPwd=$username
+    #$userPwd='Arvika2022'
+    $userPwd=$username
 
     Write-Debug "New-ANCStudentUser`: $username"
 
@@ -945,7 +945,7 @@ function Get-ANCUsersFromIDList {
     )
 
     # Hämta lista med identifierare
-    $OldIDList = Import-Csv -Path $infile -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
+    $OldIDList = Import-Csv -Path $OldIDListPath -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
 
     "$UserIdentifier;SN;givenName;sAMAccountName;displayName" | Out-File -FilePath $OutFile
 
@@ -972,6 +972,21 @@ function Get-ANCGSEUsers {
 
     Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
 
+}
+
+function Get-ANCAllUsers {
+    [cmdletbinding()]
+    param (
+        [string][Parameter(Mandatory)]$BaseOU,
+        [string][Parameter(Mandatory)]$OutFile,
+        [string][Parameter(Mandatory)]$UserIdentifier
+    )
+
+    "$UserIdentifier;sAMAccountName;displayName;SN;givenName" | Out-File -FilePath $OutFile
+
+    $attributes = @($UserIdentifier;'sAMAccountName';'displayName';'SN';'givenName')
+
+    Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
 }
 
 <#
@@ -1015,4 +1030,5 @@ export-moduleMember Set-ANCLabIdentifier
 Export-ModuleMember Lock-ANCOldUsers
 Export-ModuleMember Get-ANCUsersFromIDList
 Export-ModuleMember Get-ANCGSEUsers
+Export-ModuleMember Get-ANCAllUsers
 #>
