@@ -321,11 +321,47 @@ function ConvertTo-IDKey11 {
 
     } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK10') {
 
-        # Konvertera från 10 till 12 tecken
+        # Konvertera från 10 till 11 tecken
         Write-Debug "Converting $IDKey10"
         $yymmdd=$IDKey10.Substring(0,6)
         $nums=$IDKey10.Substring(6,4)
         $tKey="$yymmdd$IDKey11Sep$nums"
+
+    } else {
+        # Okänt parmeterset
+        Write-Error "Unknown Parameterset"
+    }
+
+    return $tKey
+
+}
+
+function ConvertTo-IDKey10 {
+    [cmdletbinding()]
+    param(
+        [Parameter(ParameterSetName = 'IDK12')]
+        [string]$IDKey12,
+        [Parameter(ParameterSetName = 'IDK11')]
+        [string]$IDKey11
+    )
+
+    $tKey = ''
+
+    if ( $PSCmdlet.ParameterSetName -eq 'IDK12') {
+
+        # Konvertera från 12 till 10 tecken
+        Write-Debug "Converting $IDKey12"
+        $yymmdd=$IDKey12.Substring(2,6)
+        $nums=$IDKey12.Substring(8,4)
+        $tKey="$yymmdd$nums"
+
+    } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK11') {
+
+        # Konvertera från 11 till 10 tecken
+        Write-Debug "Converting $IDKey10"
+        $yymmdd=$IDKey11.Substring(0,6)
+        $nums=$IDKey11.Substring(7,4)
+        $tKey="$yymmdd$nums"
 
     } else {
         # Okänt parmeterset
