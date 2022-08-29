@@ -18,16 +18,31 @@ function New-SITUserUpdateFileFromAD {
 
     begin {
         # Skapa filen med rubriker
-        $Attributes -join "," | Out-File -Encoding utf8 -FilePath $UpdateFile
+        $attrString = $Attributes -join ','
+        $headerString = $Attributes -join '","'
+        $headerString = "`"$headerString`",`"Username`""
+        #Write-Verbose $Attributes
+        Write-Verbose "Attribute string $attrString"
+        Write-Verbose "Header string $headerString"
+        $headerString | Out-File -Encoding utf8 -FilePath $UpdateFile
+
+        
     }
 
     process {
+        # Problemet är här
+
         # Lägg till rader med uppdateringsdata
+        $outAttributes = "$attrString,$Username"
+        Write-Verbose "Attributes to output $outAttributes"
+
         $userFilter = "(mail=$Username)"
-        Get-ADUser -LDAPFilter $userFilter -Properties $Attributes | Select-Object -Property $Attributes,$Username | ConvertTo-Csv -Delimiter ',' | Out-File -FilePath $UpdateFile -Append
+        Write-Verbose "Current user to get $userFilter"
+        Get-ADUser -LDAPFilter $userFilter -Properties $Attributes | Select-Object -Property $outAttributes | ConvertTo-Csv -Delimiter ',' -NoTypeInformation | Out-File -FilePath $UpdateFile -Encoding utf8 -Append
     }
 
     end {}
 
 }
 
+Export-ModuleMember New-SITUserUpdateFileFromAD
