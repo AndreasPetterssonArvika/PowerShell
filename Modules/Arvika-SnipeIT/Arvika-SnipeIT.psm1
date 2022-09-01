@@ -49,7 +49,7 @@ function New-SITUserUpdateFileFromAD {
         $curUser = Get-ADUser -LDAPFilter $ldapFilter -Properties $lookupAttribs
 
         # Kontrollera om det finns ett resultat
-        if ( $curUser -eq $null ) {
+        if ( $null -eq $curUser ) {
             # Användaren saknar mail
             Write-Host "Användaren $Username saknas"
 
