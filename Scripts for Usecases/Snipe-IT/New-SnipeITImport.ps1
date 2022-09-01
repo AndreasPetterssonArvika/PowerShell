@@ -8,6 +8,8 @@ Förutsätter tre fält i import-filen
 
 #>
 
+#Requires -Modules ImportExcel
+
 # Dialogruta för att välja fil
 
 Function Get-FileName {

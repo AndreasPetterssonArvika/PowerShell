@@ -12,6 +12,15 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "Update PowerShell modules",
+            "type": "shell",
+            "command": "..\\..\\CodeTaskScripts\\Update-LocalModules.ps1",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            }
         }
     ]
 }
