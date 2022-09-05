@@ -995,6 +995,47 @@ function Get-ANCUsersFromIDList {
 
 }
 
+<#
+Exporterar en fil som underlag för It's Learning.
+Filen hämtar enbart användare som matchar aktuella nya användare
+baserat på deras prefix.
+#>
+function Get-ANCItsLearningUsersFromIDList {
+    [cmdletbinding()]
+    param (
+        [string][Parameter(Mandatory)]$OldIDListPath,
+        [string][Parameter(Mandatory)]$UserIdentifier,
+        [string][Parameter(Mandatory)]$OldUserIdentifier,
+        [string][Parameter(Mandatory)]$OutFile,
+        [string][Parameter(Mandatory)]$CurrentUserPrefix
+    )
+
+    # Hämta lista med identifierare
+    $OldIDList = Import-Csv -Path $OldIDListPath -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
+
+    "Efternamn;Förnamn;Användarnamn;Lösenord;E-postadress" | Out-File -FilePath $OutFile -Encoding utf8
+
+    $attributes = @('SN','givenName','sAMAccountName','extensionAttribute1')
+
+    foreach ( $OldID in $OldIDList ) {
+        $UID = ConvertTo-IDKey12 -IDKey11 $OldID
+        $ldapfilter = "($UserIdentifier=$UID)"
+        $curUser = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
+
+        $sAMAccountName = $curUser.sAMAccountName
+        $curPattern = "^$CurrentUserPrefix"
+        if ( $sAMAccountName -match $curPattern ) {
+            $SN = $curUser.Surname
+            $givenName = $curUser.givenName
+            $password = $curUser.sAMAccountName
+            $mail = $curUser.extensionAttribute1
+            "$SN;$givenName;$sAMAccountName;$password;$mail" | Out-File -FilePath $OutFile -Encoding utf8 -Append
+        }
+        
+    }
+
+}
+
 function Get-ANCGSEUsers {
     [cmdletbinding()]
     param (
@@ -1067,4 +1108,5 @@ Export-ModuleMember Lock-ANCOldUsers
 Export-ModuleMember Get-ANCUsersFromIDList
 Export-ModuleMember Get-ANCGSEUsers
 Export-ModuleMember Get-ANCAllUsers
+Export-ModuleMember Get-ANCItsLearningUsersFromIDList
 #>
