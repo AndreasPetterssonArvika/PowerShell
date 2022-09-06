@@ -625,10 +625,10 @@ function New-ANCStudentFolder {
     # Skapa mappen
     New-Item -Path $UserFolderPath -Name $sAMAccountName -ItemType Directory | Out-Null
     $newUserFolder = "$UserFolderPath`\$sAMAccountName"
+    Write-Verbose "Nya användarmappen: $newUserFolder"
 
     # Sätt behörighet
     $acl = Get-Acl -Path $newUserFolder
-    # TODO Finns den lokala domänen per automatik nånstans?
     $UserPermission = "$env:USERDOMAIN\$sAMAccountName","FullControl", "ContainerInherit,ObjectInherit","None","Allow"
     $UseraccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $UserPermission
     $acl.SetAccessRule($UseraccessRule)
@@ -636,7 +636,8 @@ function New-ANCStudentFolder {
 
     # Dela mappen
     $shareName = $sAMAccountName + '$'
-    Invoke-command -ComputerName $ShareServer -ScriptBlock {param ($sharename, $newUserFolder, $sAMAccountName) New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess "TEST\$sAMAccountName" | Out-Null } -ArgumentList $sharename, $newUserFolder, $sAMAccountName
+    Write-Verbose "Nya sharenamnet $shareName"
+    New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess "$env:USERDOMAIN\$sAMAccountName"
 
 }
 
@@ -1109,4 +1110,5 @@ Export-ModuleMember Get-ANCUsersFromIDList
 Export-ModuleMember Get-ANCGSEUsers
 Export-ModuleMember Get-ANCAllUsers
 Export-ModuleMember Get-ANCItsLearningUsersFromIDList
+Export-ModuleMember New-ANCStudentFolder
 #>
