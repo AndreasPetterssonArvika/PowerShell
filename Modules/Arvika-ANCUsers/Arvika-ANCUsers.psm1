@@ -629,7 +629,6 @@ function New-ANCStudentFolder {
 
     # Sätt behörighet
     $acl = Get-Acl -Path $newUserFolder
-    # TODO Finns den lokala domänen per automatik nånstans?
     $UserPermission = "$env:USERDOMAIN\$sAMAccountName","FullControl", "ContainerInherit,ObjectInherit","None","Allow"
     $UseraccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $UserPermission
     $acl.SetAccessRule($UseraccessRule)
