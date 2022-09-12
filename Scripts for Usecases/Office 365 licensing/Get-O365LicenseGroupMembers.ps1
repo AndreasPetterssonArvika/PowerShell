@@ -18,7 +18,7 @@ function Get-ADO365GroupMembers {
 
     begin {
         if ( $ListUsers ) {
-            # Skapa utdatafilen md rubrik
+            # Skapa utdatafilen med rubrik
             "Grupp;E-post`n" | Out-File -FilePath $OutputFileName -Encoding utf8 -Append
         }
     }
