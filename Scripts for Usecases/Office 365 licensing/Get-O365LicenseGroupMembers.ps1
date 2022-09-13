@@ -25,12 +25,14 @@ function Get-ADO365GroupMembers {
 
     process {
 
+        # Namn för aktuell grupp
         $curName = $LicenseGroup.Name
         
+        # Hitta antalet användare i gruppen
         $numUsers = $LicenseGroup | Get-ADGroupMember | Measure-Object | Select-Object -ExpandProperty count
         Write-Host "Grupp: $curName har $numUsers användare"
         if ( $ListUsers ) {
-            # Fel här
+            # Hämta gruppmedlemmarna och lägg dem i en lista tillsammans med respektive gruppnamn
             $memberUsers = $LicenseGroup | Get-ADGroupMember | Get-ADUser -Properties mail
             foreach ( $memberUser in $memberUsers ) {
                 $curMail = $memberUser.mail
