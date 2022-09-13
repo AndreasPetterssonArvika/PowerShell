@@ -19,7 +19,7 @@ function Get-ADO365GroupMembers {
     begin {
         if ( $ListUsers ) {
             # Skapa utdatafilen med rubrik
-            "Grupp;E-post`n" | Out-File -FilePath $OutputFileName -Encoding utf8 -Append
+            "Grupp;E-post" | Out-File -FilePath $OutputFileName -Encoding utf8 -Append
         }
     }
 
@@ -31,9 +31,13 @@ function Get-ADO365GroupMembers {
         Write-Host "Grupp: $curName har $numUsers användare"
         if ( $ListUsers ) {
             # Fel här
-            $curmail = $LicenseGroup | Get-ADGroupMember | Get-ADUser -Properties mail | Select-Object -ExpandProperty mail
-            $userRow = "$curName`;$curmail`n"
-            $userRow | Out-File -FilePath $OutputFileName -Encoding utf8 -Append
+            $memberUsers = $LicenseGroup | Get-ADGroupMember | Get-ADUser -Properties mail
+            foreach ( $memberUser in $memberUsers ) {
+                $curMail = $memberUser.mail
+                $userRow = "$curName`;$curMail"
+                $userRow | Out-File -FilePath $OutputFileName -Encoding utf8 -Append
+            }
+            
         }
     }
 
