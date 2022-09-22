@@ -9,11 +9,11 @@ param (
 
 # Kontrollera om objektet $psISE finns
 if ($psISE) {
-    # Objektet finns, skriptet körs från ISE.
-    # Hämta sökvägen från $psISE
+    # Objektet finns, skriptet kÃ¶rs frÃ¥n ISE.
+    # HÃ¤mta sÃ¶kvÃ¤gen frÃ¥n $psISE
     $basePath = Split-Path -Path $psISE.CurrentFile.FullPath
 } else {
-    # Alla andra fall, använd $PSScriptRoot
+    # Alla andra fall, anvÃ¤nd $PSScriptRoot
     $basePath = $PSScriptRoot
 }
 
@@ -21,22 +21,31 @@ function Get-FailedRecipients {
     [cmdletbinding()]
     param (
         [string][parameter(Mandatory,ValueFromPipeline)]$messageFile
+        #[object][Parameter(Mandatory,ValueFromPipeline)]$messageFile
     )
 
-    begin {}
+    begin {
+        # Hitta domänen
+        $curDomain = Get-ADDomain | Select-Object -ExpandProperty DNSRoot
+        Write-Verbose "Nuvarande domän är $curDomain"
+    }
 
     process {
 
         Write-Verbose $messageFile
-    
-        [string]$messageText = Get-Content -Path $messageFile
+   
+        [string]$messageText = Get-Content -LiteralPath $messageFile
     
         $pattern = 'X-Failed-Recipients: (?<email>.*?)\s'
     
         $messageText -match $pattern | Out-Null
     
         if ( $Matches.count -gt 0 ) {
-            return $Matches.email
+            $curMail = $Matches.email
+            if ( $curMail -match $curDomain ) {
+                return $curMail
+            }
+
         }
 
     }
@@ -51,7 +60,11 @@ function Find-ADMailAddress {
         [string][Parameter(Mandatory,ValueFromPipeline)]$mailAddress
     )
 
-    begin {}
+    begin {
+        # Skapa namn för utdatafilen, men skapa den inte om det inte finns
+        $now=get-date -Format 'yyMMdd_HHmm'
+        $outfile="$basePath\DisabledAndMissingusers_$now.txt"
+    }
 
     process {
         $ldapfilter="(mail=$mailAddress)"
@@ -61,15 +74,19 @@ function Find-ADMailAddress {
 
         $numUsers = $curUser | Measure-Object | Select-Object -ExpandProperty count
 
+
+        # Vilka ska loggas, låsta och saknade
         if ( $numUsers -gt 0 ) {
             Write-Verbose "User with mail address $mailAddress exists"
             if ( $curUser.Enabled -eq $true ) {
                 Write-Verbose "User with email address $mailAddress is enabled"
             } else {
                 Write-Verbose "User with email address $mailAddress is disabled"
+                $mailAddress | Out-File -FilePath $outfile -Encoding utf8 -Append
             }
         } else {
             Write-Verbose "User with mail address $mailAddress does not exist"
+            $mailAddress | Out-File -FilePath $outfile -Encoding utf8 -Append
         }
         
     }
@@ -78,5 +95,4 @@ function Find-ADMailAddress {
 
 }
 
-Get-ChildItem -Path $messageFolder -Filter *.msg | Select-Object -ExpandProperty Name | Get-FailedRecipients | Find-ADMailAddress
-
+Get-ChildItem -Path $messageFolder | Where-Object { ( $_.Name -match "msg$" ) -or ( $_.Name -match "eml$" ) } | Select-Object -ExpandProperty Name | Get-FailedRecipients | Find-ADMailAddress
