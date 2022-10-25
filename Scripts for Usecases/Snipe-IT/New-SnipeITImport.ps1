@@ -54,15 +54,18 @@ function New-SnipeITLine {
         [string]$outputFile
     )
 
-    begin {}
+    begin {
 
-    process {
-        #$asset
         $tCompany = "Arvika kommun"
         $tManufacturer = "Dell"
         $tModelName = "Chromebook 3100"
         $tModelNo="1WCWD"
         $tCategory = "Chromebook"
+
+    }
+
+    process {
+        #$asset
         $tSerial = $asset.Serienr
         $tAID = $asset.Theftmark
         $tMac = [string]$asset."MAC-Adress Wifi" -replace '..(?!$)','$&:' | ForEach-Object { $_.toLower() }
