@@ -261,9 +261,60 @@ function Set-ANCLabIdentifier {
     end {}
 }
 
+function ConvertTo-IDKey13 {
+    [cmdletbinding()]
+    param(
+        [Parameter(ParameterSetName = 'IDK12')]
+        [string]$IDKey12,
+        [Parameter(ParameterSetName = 'IDK11')]
+        [string]$IDKey11,
+        [Parameter(ParameterSetName = 'IDK10')]
+        [string]$IDKey10
+    )
+
+    $IDKey13Sep='-'
+    $tKey = ''
+
+    if ( $PSCmdlet.ParameterSetName -eq 'IDK12') {
+
+        # Konvertera från 12 till 13 tecken
+        Write-Debug "Converting $IDKey12"
+        $yyyymmdd=$IDKey12.Substring(0,8)
+        $nums=$IDKey12.Substring(8,4)
+        $tKey="$yyyymmdd$IDKey13Sep$nums"
+
+    } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK11') {
+
+        # Konvertera från 11 till 13 tecken
+        Write-Debug "Converting $IDKey11"
+        $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey11.Substring(0,2))
+        $mmdd=$IDKey11.Substring(2,4)
+        $nums=$IDKey11.Substring(7,4)
+        $tKey="$year$mmdd-$nums"
+
+    } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK10') {
+
+        # Konvertera från 10 till 13 tecken
+        Write-Debug "Converting $IDKey10"
+        $year=(Get-Culture).Calendar.ToFourDigitYear($IDKey10.Substring(0,2))
+        $mmdd=$IDKey10.Substring(2,4)
+        $nums=$IDKey10.Substring(6,4)
+        $tKey="$year$mmdd$IDKey13Sep$nums"
+
+    } else {
+        # Okänt parmeterset
+        Write-Error "Unknown Parameterset"
+    }
+
+    return $tKey
+
+}
+
 function ConvertTo-IDKey12 {
     [cmdletbinding()]
     param(
+        [Parameter(ParameterSetName = 'IDK13')]
+        [string]$IDKey13,
         [Parameter(ParameterSetName = 'IDK11')]
         [string]$IDKey11,
         [Parameter(ParameterSetName = 'IDK10')]
@@ -272,7 +323,15 @@ function ConvertTo-IDKey12 {
 
     $tKey = ''
 
-    if ( $PSCmdlet.ParameterSetName -eq 'IDK11') {
+    if ( $PSCmdlet.ParameterSetName -eq 'IDK13') {
+
+        # Konvertera från 13 till 12 tecken
+        Write-Debug "Converting $IDKey13"
+        $yyyymmdd=$IDKey13.Substring(0,8)
+        $nums=$IDKey13.Substring(9,4)
+        $tKey="$yyyymmdd$nums"
+
+    } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK11') {
 
         # Konvertera från 11 till 12 tecken
         Write-Debug "Converting $IDKey11"
@@ -302,6 +361,8 @@ function ConvertTo-IDKey12 {
 function ConvertTo-IDKey11 {
     [cmdletbinding()]
     param(
+        [Parameter(ParameterSetName = 'IDK13')]
+        [string]$IDKey13,
         [Parameter(ParameterSetName = 'IDK12')]
         [string]$IDKey12,
         [Parameter(ParameterSetName = 'IDK10')]
@@ -311,6 +372,13 @@ function ConvertTo-IDKey11 {
     $IDKey11Sep='-'
     $tKey = ''
 
+    if ( $PSCmdlet.ParameterSetName -eq 'IDK13') {
+
+        # Konvertera från 13 till 11 tecken
+        Write-Debug "Converting $IDKey13"
+        $tKey=$IDKey13.Substring(2,11)
+
+    }
     if ( $PSCmdlet.ParameterSetName -eq 'IDK12') {
 
         # Konvertera från 12 till 11 tecken
@@ -339,6 +407,8 @@ function ConvertTo-IDKey11 {
 function ConvertTo-IDKey10 {
     [cmdletbinding()]
     param(
+        [Parameter(ParameterSetName = 'IDK13')]
+        [string]$IDKey13,
         [Parameter(ParameterSetName = 'IDK12')]
         [string]$IDKey12,
         [Parameter(ParameterSetName = 'IDK11')]
@@ -347,7 +417,15 @@ function ConvertTo-IDKey10 {
 
     $tKey = ''
 
-    if ( $PSCmdlet.ParameterSetName -eq 'IDK12') {
+    if ( $PSCmdlet.ParameterSetName -eq 'IDK13') {
+
+        # Konvertera från 13 till 10 tecken
+        Write-Debug "Converting $IDKey13"
+        $yymmdd=$IDKey13.Substring(2,6)
+        $nums=$IDKey13.Substring(9,4)
+        $tKey="$yymmdd$nums"
+
+    } elseif ( $PSCmdlet.ParameterSetName -eq 'IDK12') {
 
         # Konvertera från 12 till 10 tecken
         Write-Debug "Converting $IDKey12"

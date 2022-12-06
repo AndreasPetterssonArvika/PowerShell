@@ -12,6 +12,14 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },{
+            "label": "Copy to XS-grupper",
+            "type": "shell",
+            "command": "..\\..\\CodeTaskScripts\\Arvika-XS-groups-Task.ps1",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            }
         },
         {
             "label": "Update PowerShell modules",
