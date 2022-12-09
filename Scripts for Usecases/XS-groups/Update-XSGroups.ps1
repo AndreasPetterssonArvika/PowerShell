@@ -4,7 +4,8 @@ Skriptet uppdaterar XS-grupperna baserat på Excelblad samlade i en mapp.
 
 [cmdletbinding()]
 param(
-    [string][Parameter(Mandatory)]$BaseFolder
+    [Parameter(Mandatory)][string]$BaseFolder,
+    [Parameter()][ValidateSet('Groups','Members')][string[]]$UpdateType = ('Members')
 )
 
 #Requires -modules ImportExcel
@@ -99,7 +100,6 @@ $drivePermissionString = 'J'
 
 # Slå upp alla Excelfiler i mappen
 
-#Get-ChildItem -Path $BaseFolder | Get-ExcelFileSummary
 $worksheets = Get-ChildItem -Path $BaseFolder | Get-ExcelFileSummary | Select-Object -Property Excelfile,Path,Worksheetname -First 5
 
 #<#
@@ -112,38 +112,77 @@ foreach ( $sheet in $worksheets ) {
         # Gör inget
         Write-Verbose 'Budgetbladet'
     } else {
-        $curWBName = $sheet.Excelfile
-        $curWBPath = $sheet.Path
-        $curFile = "$curWBPath\$curWBName"
-        Write-Verbose "Enhetsblad`:$curWSName"
-        #$curWBPath
-        $curContent = Import-Excel -Path $curFile -WorksheetName $curWSName -NoHeader -StartColumn 2 -EndColumn 6
-        
-        #<#
-        foreach ( $row in $curContent ) {
-            $curDept = $row.P1
-            $curID = $row.P2
-            $curDriveInput = $row.P4
-            $curTitleAbbr = $row.P5
+
+        if ( $UpdateType -eq 'Groups' ) {
+            Write-Verbose 'Uppdaterar grupper'
+
+            $curWBName = $sheet.Excelfile
+            $curWBPath = $sheet.Path
+            $curFile = "$curWBPath\$curWBName"
+            Write-Verbose "Enhetsblad`:$curWSName"
+            #$curWBPath
+            $curContent = Import-Excel -Path $curFile -WorksheetName $curWSName -NoHeader -StartColumn 2 -EndColumn 6
             
             #<#
-            if ( $curID -match $identifierPattern ) {
-                # Matchar identifierare
-                $curClearTitle = Get-ClearTitleFromAbbr -TitleAbbr $curTitleAbbr                
-                $curID12 = ConvertTo-IDKey12 -IDKey13 $curID
-                $hasPermission = $false
-                if ( $curDriveInput -match $drivePermissionString ) {
-                    $hasPermission = $true
+            foreach ( $row in $curContent ) {
+                # Hämta avdelning och identifierare
+                $curDept = $row.P1
+                $curID = $row.P2
+                
+                #<#
+                if ( $curID -match $identifierPattern ) {
+                    Write-Verbose "Hittade data för grupper`: $curWSName, $curDept"
                 }
-                Write-Verbose "Hittade data`: $curDept, $curID12, $curClearTitle,$hasPermission"
+                #>
             }
             #>
+
+            # Skapa kandidatgrupper
+            # Namn FSK<Enhet><Avdelning>
+
+            # Hämta befintliga grupper
+            # objectClass = group
+            # employeeID? = LS36330
+
+
+        } elseif ( $UpdateType -eq 'Members' ) {
+            Write-Verbose 'Uppdaterar medlemmar'
+
+            $curWBName = $sheet.Excelfile
+            $curWBPath = $sheet.Path
+            $curFile = "$curWBPath\$curWBName"
+            Write-Verbose "Enhetsblad`:$curWSName"
+            #$curWBPath
+            $curContent = Import-Excel -Path $curFile -WorksheetName $curWSName -NoHeader -StartColumn 2 -EndColumn 6
+            
+            #<#
+            foreach ( $row in $curContent ) {
+                $curDept = $row.P1
+                $curID = $row.P2
+                $curDriveInput = $row.P4
+                $curTitleAbbr = $row.P5
+                
+                #<#
+                if ( $curID -match $identifierPattern ) {
+                    # Matchar identifierare och konverterar till ID12
+                    $curClearTitle = Get-ClearTitleFromAbbr -TitleAbbr $curTitleAbbr                
+                    $curID12 = ConvertTo-IDKey12 -IDKey13 $curID
+                    $hasPermission = $false
+                    if ( $curDriveInput -match $drivePermissionString ) {
+                        $hasPermission = $true
+                    }
+                    Write-Verbose "Hittade data för medlemmar`: $curWSName, $curDept, $curID12, $curClearTitle,$hasPermission"
+                }
+                #>
+            }
+            #>
+
+
+        } else {
+            Write-host 'Okänd uppdateringstyp'
         }
-        #>
+
+        
     }
 }
 #>
-
-# För varje fil, slå upp alla blad
-
-# För varje blad, hämta alla rader
