@@ -9,8 +9,7 @@
             "command": "..\\..\\CodeTaskScripts\\Arvika-ANCUsers-Task.ps1",
             "problemMatcher": [],
             "group": {
-                "kind": "build",
-                "isDefault": true
+                "kind": "build"
             }
         },{
             "label": "Copy to XS-grupper",
@@ -18,7 +17,8 @@
             "command": "..\\..\\CodeTaskScripts\\Arvika-XS-groups-Task.ps1",
             "problemMatcher": [],
             "group": {
-                "kind": "build"
+                "kind": "build",
+                "isDefault": true
             }
         },
         {
