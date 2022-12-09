@@ -54,18 +54,22 @@ function New-SnipeITLine {
         [string]$outputFile
     )
 
-    begin {}
+    begin {
 
-    process {
-        #$asset
+        $tCompany = "Arvika kommun"
         $tManufacturer = "Dell"
         $tModelName = "Chromebook 3100"
         $tModelNo="1WCWD"
         $tCategory = "Chromebook"
+
+    }
+
+    process {
+        #$asset
         $tSerial = $asset.Serienr
         $tAID = $asset.Theftmark
         $tMac = [string]$asset."MAC-Adress Wifi" -replace '..(?!$)','$&:' | ForEach-Object { $_.toLower() }
-        $tString = "`"$tManufacturer`",`"$tModelName`",`"$tModelNo`",`"$tSerial`",`"$tAID`",`"$tMac`",`"$tCategory`",`"$AssetStatus`",`"$Location`""
+        $tString = "`"$tCompany`",`"$tManufacturer`",`"$tModelName`",`"$tModelNo`",`"$tSerial`",`"$tAID`",`"$tMac`",`"$tCategory`",`"$AssetStatus`",`"$Location`""
         $tString | Out-File -FilePath $outputFile -Append -Encoding UTF8
     }
 
@@ -89,7 +93,7 @@ $assets = Import-Excel -Path $assetFile
 $location = "GR Admin"
 $defaultFileName = "myImport_$now.csv"
 $outputFile = Get-SaveFileName -initialDirectory $basePath -DefaultFileName $defaultFileName
-$headers = "`"Manufacturer`",`"Model Name`",`"Model Number`",`"Serial Number`",`"Asset Tag`",`"MAC Address`",`"Category`",`"Status`",`"Location`""
+$headers = "`"Company`",`"Manufacturer`",`"Model Name`",`"Model Number`",`"Serial Number`",`"Asset Tag`",`"MAC Address`",`"Category`",`"Status`",`"Location`""
 $headers | Out-File -FilePath $outputFile -Encoding UTF8
 
 
