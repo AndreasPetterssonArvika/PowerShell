@@ -11,6 +11,8 @@ param(
 #Requires -modules ImportExcel
 Import-Module ImportExcel
 
+# Filter för uppdaterings ID
+$UpdateIDFilter='(arvikaCOMUpdateID=LS36330)'
 
 function ConvertTo-IDKey12 {
     [cmdletbinding()]
@@ -92,15 +94,55 @@ function Get-ClearTitleFromAbbr {
     return $retTitle
 }
 
+# Dialogruta för att välja fil
+Function Get-FileName {
+    param (
+        [string]$InitialDirectory
+    )
+    [System.Reflection.Assembly]::LoadWithPartialName(“System.Windows.Forms”) | Out-Null
+
+    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+    $OpenFileDialog.initialDirectory = $InitialDirectory
+    $OpenFileDialog.filter = “CSV-filer (*.csv)| *.csv”
+    $OpenFileDialog.Title = "Välj fil"
+    $OpenFileDialog.ShowDialog() | Out-Null
+    $OpenFileDialog.filename
+}
+
 $rektorPattern = '^Rektor [\w]{2,3}$'
 $budgetPattern = '^Budget [\w]{2,3}$'
 $identifierPattern = '^[\d]{8}-[\d]{4}$'
 
 $drivePermissionString = 'J'
 
+
+
 # Slå upp alla Excelfiler i mappen
 
 $worksheets = Get-ChildItem -Path $BaseFolder | Get-ExcelFileSummary | Select-Object -Property Excelfile,Path,Worksheetname -First 5
+
+$candGroups = @{}
+
+if ( $UpdateType -eq 'Groups' ) {
+    # Hämta förkortningar till hashtable
+    $unitAcrFile = Get-FileName -InitialDirectory .
+    $unitAcrFileData = Import-Csv -Delimiter ';' -Path $unitAcrFile -Encoding utf8
+
+    $unitAcrData = @{}
+
+    foreach ( $unit in $unitAcrFileData ) {
+        $unitAcrData[$unit.UnitDisplayName]=$unit.UnitAcr
+    }
+
+    $unitAcrData
+    $message = "Kontrollera att alla tecken i importen av förkortningar är korrekta"
+    $message = $message + "`nTryck valfri tangent för att fortsätta eller Ctrl+C för att avbryta"
+    Read-Host -Prompt $message
+
+    # Hämta existerande grupper
+    $message = 'Här ska existerande grupper hämtas'
+    Read-Host -Prompt $message
+}
 
 #<#
 foreach ( $sheet in $worksheets ) {
@@ -116,6 +158,8 @@ foreach ( $sheet in $worksheets ) {
         if ( $UpdateType -eq 'Groups' ) {
             Write-Verbose 'Uppdaterar grupper'
 
+            
+
             $curWBName = $sheet.Excelfile
             $curWBPath = $sheet.Path
             $curFile = "$curWBPath\$curWBName"
@@ -126,23 +170,43 @@ foreach ( $sheet in $worksheets ) {
             #<#
             foreach ( $row in $curContent ) {
                 # Hämta avdelning och identifierare
-                $curDept = $row.P1
+                [string]$curDept = $row.P1
                 $curID = $row.P2
                 
                 #<#
-                if ( $curID -match $identifierPattern ) {
-                    Write-Verbose "Hittade data för grupper`: $curWSName, $curDept"
+                if ( ( $curID -match $identifierPattern ) -and ( $curDept -match '[a-zA-Z]{1,}' ) ) {
+                    [string]$curAcr = $unitAcrData[$curWSName]
+                    Write-Verbose "Hittade data för grupper`: $curAcr, $curDept"
+                    $lCurAcr = $curAcr.ToLower()
+                    $lCurDept = $curDept.ToLower()
+                    $curMail = "fsk.$lCurAcr.$lCurDept" + 'xs@arvika.com'
+                    #$curMail
+                    try {
+                        $candGroups.Add($curMail,'cand')
+                    }
+                    catch [System.Management.Automation.MethodInvocationException] {
+                        # Försöker lägga in en redag befintlig gruppkandidat, gör inget
+                    }
+
+                    
+
+                    # Om gruppen inte finns bland de befintliga, skapa gruppen
                 }
                 #>
             }
             #>
 
+            $candGroups.Keys
+            $candGroups.Keys | Measure-Object | Select-Object -ExpandProperty count
+
             # Skapa kandidatgrupper
             # Namn FSK<Enhet><Avdelning>
+            $arvikaCOMSKolform='FSK'
+            $arvikaCOMEnhet = ''
+            $arvikaCOMKlass = ''
 
             # Hämta befintliga grupper
-            # objectClass = group
-            # employeeID? = LS36330
+            # $UpdateIDFilter
 
 
         } elseif ( $UpdateType -eq 'Members' ) {
