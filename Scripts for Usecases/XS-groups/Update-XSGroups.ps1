@@ -151,7 +151,7 @@ $rektorPattern = '^Rektor [\w]{2,3}$'
 $budgetPattern = '^Budget [\w]{2,3}$'
 $identifierPattern = '^[\d]{8}-[\d]{4}$'
 
-$drivePermissionString = 'J'
+$drivePermissionString = 'XS'
 
 # Slå upp alla Excelfiler i mappen
 
@@ -220,7 +220,7 @@ if ( $UpdateType -eq 'Groups' ) {
                         Write-Verbose "Gruppen $candMail existerar redan"
                         $curGroups[$candMail] = $keepGroup
                     } else {
-                        # Gruppen finns inte, skapad den
+                        # Gruppen finns inte, skapar den
                         Write-Verbose "Skapar gruppen $candMail"
                         Write-Host "Här ska det vara en funktion som skapar gruppen $candMail"
                         # Lägg till den bland de befintliga grupperna
@@ -243,80 +243,28 @@ if ( $UpdateType -eq 'Groups' ) {
         }
     }
 
-}
+} elseif ( $UpdateType -eq 'Members' ) {
+    Write-Verbose "Uppdaterar medlemmar"
 
-BREAK
+    #<#
+    foreach ( $sheet in $worksheets ) {
+        $curWSName = $sheet.Worksheetname
+        if ( $curWSName -match $rektorPattern ) {
+            Write-Verbose 'Rektorsbladet'
+            Write-Host "Rektor`: $curWSName"
+        } elseif ( $curWSName -match $budgetPattern ) {
+            # Gör inget
+            Write-Verbose 'Budgetbladet'
+        } else {
 
-<#
-foreach ( $sheet in $worksheets ) {
-    $curWSName = $sheet.Worksheetname
-    if ( $curWSName -match $rektorPattern ) {
-        Write-Verbose 'Rektorsbladet'
-        Write-Host "Rektor`: $curWSName"
-    } elseif ( $curWSName -match $budgetPattern ) {
-        # Gör inget
-        Write-Verbose 'Budgetbladet'
-    } else {
-
-        if ( $UpdateType -eq 'Groups' ) {
-            Write-Verbose 'Uppdaterar grupper'
-
-            
-
+            Write-Verbose "Avdelning`: $curWSName"
             $curWBName = $sheet.Excelfile
             $curWBPath = $sheet.Path
             $curFile = "$curWBPath\$curWBName"
-            Write-Verbose "Enhetsblad`:$curWSName"
-            #$curWBPath
             $curContent = Import-Excel -Path $curFile -WorksheetName $curWSName -NoHeader -StartColumn 2 -EndColumn 6
             
-            
-            foreach ( $row in $curContent ) {
-                # Hämta avdelning och identifierare
-                [string]$curDept = $row.P1
-                [string]$curID = $row.P2
-                
-                
-                if ( ( $curID -match $identifierPattern ) -and ( $curDept -match '[a-zA-Z]{1,}' ) ) {
-                    [string]$curAcr = $unitAcrData[$curWSName]
-                    Write-Verbose "Hittade data för grupper`: $curAcr, $curDept"
-                    $lCurAcr = $curAcr.ToLower()
-                    $lCurDept = $curDept.ToLower()
-                    $curMail = "fsk.$lCurAcr.$lCurDept" + 'xs@arvika.com'
-                    
+            $inputUsers = @{}
 
-                    
-
-                    # Om gruppen inte finns bland de befintliga, skapa gruppen
-                }
-                
-            }
-            
-
-            $candGroups.Keys
-            $candGroups.Keys | Measure-Object | Select-Object -ExpandProperty count
-
-            # Skapa kandidatgrupper
-            # Namn FSK<Enhet><Avdelning>
-            $arvikaCOMSKolform='FSK'
-            $arvikaCOMEnhet = ''
-            $arvikaCOMKlass = ''
-
-            # Hämta befintliga grupper
-            # $UpdateIDFilter
-
-
-        } elseif ( $UpdateType -eq 'Members' ) {
-            Write-Verbose 'Uppdaterar medlemmar'
-
-            $curWBName = $sheet.Excelfile
-            $curWBPath = $sheet.Path
-            $curFile = "$curWBPath\$curWBName"
-            Write-Verbose "Enhetsblad`:$curWSName"
-            #$curWBPath
-            $curContent = Import-Excel -Path $curFile -WorksheetName $curWSName -NoHeader -StartColumn 2 -EndColumn 6
-            
-            
             foreach ( $row in $curContent ) {
                 $curDept = $row.P1
                 $curID = $row.P2
@@ -329,21 +277,33 @@ foreach ( $sheet in $worksheets ) {
                     $curClearTitle = Get-ClearTitleFromAbbr -TitleAbbr $curTitleAbbr                
                     $curID12 = ConvertTo-IDKey12 -IDKey13 $curID
                     $hasPermission = $false
+                    $inputUsers[$curID12] = @{}
+                    $inputUsers[$curID12]['Dept'] = $curDept
+                    $inputUsers[$curID12]['Title'] = $curClearTitle
                     if ( $curDriveInput -match $drivePermissionString ) {
-                        $hasPermission = $true
+                        Write-Verbose "Har behörighet"
+                        $inputUsers[$curID12]['XS'] = $true
+                    } else {
+                        Write-Verbose "Har inte behörighet"
+                        $inputUsers[$curID12]['XS'] = $false
                     }
-                    Write-Verbose "Hittade data för medlemmar`: $curWSName, $curDept, $curID12, $curClearTitle,$hasPermission"
+                    #Write-Verbose "Hittade data för medlemmar`: $curWSName, $curDept, $curID12, $curClearTitle,$hasPermission"
+                    $testDept = $inputUsers[$curID12].Dept
+                    $testTitle = $inputUsers[$curID12].Title
+                    $testPermission = $inputUsers[$curID12].XS
+                    Write-Verbose "Hittade data för personal`: $curID12, $testDept, $testTitle, $testPermission"
+
+                    # Hämta motsvarande mailadress från Active Directory
+                    Write-Verbose "Hämtar mailadressen för $curID12"
+                    #$inputUsers[$curID12]['mail'] = $curUserMail
+                    # Uppdatera användardata baserat på vad som hittats
                 }
                 
             }
-            
-
-
-        } else {
-            Write-host 'Okänd uppdateringstyp'
+                
         }
-
-        
     }
+    #>
+    
 }
-#>
+
