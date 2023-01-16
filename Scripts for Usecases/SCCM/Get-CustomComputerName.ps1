@@ -69,16 +69,24 @@ function redrawControlsOnFormResize {
     $okButton.Location = New-Object System.Drawing.Point(($main_form.Width - $outerHMargin - $okButton.Width),($nameBox.Bottom + $internalVSpacing))
 }
 
+# Hämta TSEnvironment och slå upp namnet
 $TSEnv = New-Object -COMObject Microsoft.SMS.TSEnvironment
 $OSDComputerName = $TSEnv.value("_smstsmachinename")
 
-# Kontrollera om $OSDComputerName har fått ett värde, annars skapa ett nytt namn med serienummer som standard.
-if ( $null -eq $OSDComputerName ) {
+# Slå upp namnet mot AD
+$ldapfilter="(name=$OSDComputerName)"
+$numADComps = get-adcomputer -LDAPFilter $ldapfilter | Measure-Object | Select-Object -ExpandProperty count
 
+if ( $numADComps -gt 0 ) {
+    # Datorkontot existerar, gör inget
+    # Rad för testning
+    $OSDComputerName = Get-CustomComputerName -DefaultComputerName $OSDComputerName -Verbose
+
+} else {
+    # Inget datorkonto hittat, slå upp och föreslå serienummer
     $computerSerialNumber = Get-CimInstance win32_bios | Select-Object -ExpandProperty Serialnumber
 
     $OSDComputerName = Get-CustomComputerName -DefaultComputerName $computerSerialNumber -Verbose
-
 }
 
 # Sätt värdet för datornamn i TSEnvironment
