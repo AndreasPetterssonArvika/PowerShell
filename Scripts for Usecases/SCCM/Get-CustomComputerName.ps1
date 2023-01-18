@@ -73,14 +73,21 @@ function redrawControlsOnFormResize {
 $TSEnv = New-Object -COMObject Microsoft.SMS.TSEnvironment
 $OSDComputerName = $TSEnv.value("_smstsmachinename")
 
+<# Utkommenterat för test
 # Slå upp namnet mot AD
 $ldapfilter="(name=$OSDComputerName)"
 $numADComps = get-adcomputer -LDAPFilter $ldapfilter | Measure-Object | Select-Object -ExpandProperty count
+#>
+
+# För testning
+#$numADComps = 1    # Hårdställer en dator hittad i AD
+$numADComps = 0    # Hårdställer ingen dator hittad i AD
 
 if ( $numADComps -gt 0 ) {
     # Datorkontot existerar, gör inget
-    # Rad för testning
-    $OSDComputerName = Get-CustomComputerName -DefaultComputerName $OSDComputerName -Verbose
+    # Testning, ska plockas bort sen. Här ska inget göras i första versionen.
+    $dummyName = 'dummyname'
+    $OSDComputerName = Get-CustomComputerName -DefaultComputerName $dummyName -Verbose
 
 } else {
     # Inget datorkonto hittat, slå upp och föreslå serienummer
