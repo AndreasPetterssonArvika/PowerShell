@@ -4,8 +4,8 @@ Skriptet uppdaterar XS-grupperna baserat på Excelblad samlade i en mapp.
 
 [cmdletbinding(SupportsShouldProcess)]
 param(
-    [Parameter(Mandatory)][string]$BaseFolder,
-    [Parameter()][ValidateSet('Groups','Members')][string[]]$UpdateType = ('Members')
+    [Parameter(Mandatory)][string]$BaseFolder,          # Mappen med excelbladen
+    [Parameter()][ValidateSet('Groups','Members')][string[]]$UpdateType = ('Members')       # Anger om grupperna eller medlemmarna ska uppdateras.
 )
 
 #Requires -modules ImportExcel
@@ -175,9 +175,9 @@ if ( $UpdateType -eq 'Groups' ) {
     $message = $message + "`nTryck valfri tangent för att fortsätta eller Ctrl+C för att avbryta"
     Read-Host -Prompt $message
 
-    # Hämta existerande grupper till hashtable
+    # Hämta existerande grupper från Active Directory till hashtable
     # Ska ha mailadress som key och 'exist' som värde
-    $message = 'Här ska existerande grupper hämtas'
+    $message = 'Här ska existerande grupper hämtas och skrivas till dictionary'
     Read-Host -Prompt $message
 
     $curGroups = @{}
@@ -217,13 +217,13 @@ if ( $UpdateType -eq 'Groups' ) {
                     Write-Verbose "Kandidatgrupp`: $candMail"
                     if ( $curGroups.ContainsKey($candMail) ) {
                         # Gruppen är redan skapad, markera att den ska fortsätta finnas
-                        Write-Verbose "Gruppen $candMail existerar redan"
+                        Write-Verbose "Gruppen $candMail existerar redan bland kandidaterna"
                         $curGroups[$candMail] = $keepGroup
                     } else {
                         # Gruppen finns inte, skapar den
                         Write-Verbose "Skapar gruppen $candMail"
                         Write-Host "Här ska det vara en funktion som skapar gruppen $candMail"
-                        # Lägg till den bland de befintliga grupperna
+                        # Lägg till den bland de befintliga grupperna om den kunde skapas
                         $curGroups[$candMail]=$keepGroup
                     }
                 }
@@ -239,7 +239,10 @@ if ( $UpdateType -eq 'Groups' ) {
             Write-Verbose "Behåller gruppen $mail"
         } else {
             # Gruppen ska tas bort
-            $PSCmdlet.ShouldProcess($mail,'Ta bort')
+            if ($PSCmdlet.ShouldProcess($mail,'Ta bort')) {
+                Write-Verbose "Tar bort gruppen $mail"
+                Write-Host "Här ska det vara en funktion som tar bort gruppen"
+            }
         }
     }
 
@@ -257,6 +260,7 @@ if ( $UpdateType -eq 'Groups' ) {
             Write-Verbose 'Budgetbladet'
         } else {
 
+            # Hämta data från Excelbladet
             Write-Verbose "Avdelning`: $curWSName"
             $curWBName = $sheet.Excelfile
             $curWBPath = $sheet.Path
@@ -297,6 +301,7 @@ if ( $UpdateType -eq 'Groups' ) {
                     Write-Verbose "Hämtar mailadressen för $curID12"
                     #$inputUsers[$curID12]['mail'] = $curUserMail
                     # Uppdatera användardata baserat på vad som hittats
+                    Write-Host "Här ska det vara en funktion som uppdaterar användardata."
                 }
                 
             }
