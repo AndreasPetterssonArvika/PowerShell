@@ -1,5 +1,11 @@
 <#
 Skriptet uppdaterar XS-grupperna baserat på Excelblad samlade i en mapp.
+
+Uppgifter som ska finnas i AD för alla grupper
+arvikaCOMSkolform
+arvikaCOMEnhet
+arvikaCOMKlass? Avdelning
+arvikaCOMUpdateID. Ska vara "LS36330"
 #>
 
 [cmdletbinding(SupportsShouldProcess)]
@@ -282,11 +288,13 @@ if ( $UpdateType -eq 'Groups' ) {
                     $curID12 = ConvertTo-IDKey12 -IDKey13 $curID
                     $hasPermission = $false
                     $inputUsers[$curID12] = @{}
+                    $inputUsers[$curID12]['Unit'] = $curWSName
                     $inputUsers[$curID12]['Dept'] = $curDept
                     $inputUsers[$curID12]['Title'] = $curClearTitle
                     if ( $curDriveInput -match $drivePermissionString ) {
                         Write-Verbose "Har behörighet"
                         $inputUsers[$curID12]['XS'] = $true
+
                     } else {
                         Write-Verbose "Har inte behörighet"
                         $inputUsers[$curID12]['XS'] = $false
@@ -297,11 +305,15 @@ if ( $UpdateType -eq 'Groups' ) {
                     $testPermission = $inputUsers[$curID12].XS
                     Write-Verbose "Hittade data för personal`: $curID12, $testDept, $testTitle, $testPermission"
 
-                    # Hämta motsvarande mailadress från Active Directory
+                    # Hämta motsvarande mailadress från Active Directory och lagra.
                     Write-Verbose "Hämtar mailadressen för $curID12"
-                    #$inputUsers[$curID12]['mail'] = $curUserMail
+                    $ldapfilter = "(personNummer=$curID12)"
+                    $curUserMail = Get-ADUser -LDAPFilter $ldapfilter -mail | Select-Object -ExpandProperty mail
+                    $inputUsers[$curID12]['mail'] = $curUserMail
+                    # Hämta även sAMAccountName, behöver jag ha mailadress då?
                     # Uppdatera användardata baserat på vad som hittats
                     Write-Host "Här ska det vara en funktion som uppdaterar användardata."
+                    #Get-ADUser -LDAPFilter $ldapfilter | Set-ADUser -Replace 
                 }
                 
             }
