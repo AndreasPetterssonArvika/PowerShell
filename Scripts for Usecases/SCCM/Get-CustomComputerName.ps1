@@ -67,11 +67,10 @@ function Get-CustomComputerName {
     $main_form.Controls.Add($okButton)
 
     # Add timer
-    #$Script:Countdown = 10
     $Script:Countdown = $timeoutSeconds
 
     $TimeoutTimer.Add_Tick( {
-        Write-host "Tid kvar: $Script:Countdown"
+        #Write-host "Tid kvar: $Script:Countdown"
         --$Script:Countdown
         if ( $Script:Countdown -lt 0 ) {
             $main_form.Close()
