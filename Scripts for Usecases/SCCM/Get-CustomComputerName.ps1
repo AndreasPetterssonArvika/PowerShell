@@ -1,14 +1,26 @@
-# Skriptet ska om möjligt hämta befintligt datornamn och använda det genom TSEnvironment
-# Om datornamn inte redan finns:
-# Skriptet visar en ruta som föreslår serienumret, men som kan ändras. När man klickar OK returneras texten i rutan
+<#
+Skriptet ska om möjligt hämta befintligt datornamn och söka det i AD
+Om datornamnet finns i AD: återanvänd det
+Om datornamn inte finns i AD:
+Skriptet visar en ruta som föreslår serienumret, men som kan ändras.
+När man klickar OK sätts nammnet i TSEnvironment
+
+Funktionen förutsätter att Powershell-modulen för 
+Active Directory finns tillgänglig i WinPE
+
+http://idanve.blogspot.com/2017/11/verify-computer-name-against-active.html
+#>
 
 # Load Forms class
 Add-Type -AssemblyName System.Windows.Forms
 
+$timeoutSeconds = 10
+
 function Get-CustomComputerName {
     [cmdletbinding()]
     param (
-        [string]$DefaultComputerName
+        [string]$DefaultComputerName,
+        $TimeoutTimer
     )
     $retval = $DefaultComputerName
 
@@ -32,7 +44,7 @@ function Get-CustomComputerName {
 
     # Add a label
     $label = New-Object System.Windows.Forms.Label
-    $label.Text = "Ange datornamn"
+    $label.Text = "Ange datornamn. Du har $timeoutSeconds sekunder på dig."
     $label.Location = New-Object System.Drawing.Point(10,10)
     $label.AutoSize = $true
     $main_form.Controls.Add($label)
@@ -54,12 +66,27 @@ function Get-CustomComputerName {
     $okButton.Location = New-Object System.Drawing.Point(10,100)
     $main_form.Controls.Add($okButton)
 
+    # Add timer
+    #$Script:Countdown = 10
+    $Script:Countdown = $timeoutSeconds
+
+    $TimeoutTimer.Add_Tick( {
+        Write-host "Tid kvar: $Script:Countdown"
+        --$Script:Countdown
+        if ( $Script:Countdown -lt 0 ) {
+            $main_form.Close()
+        }
+    } )
+    
+    $TimeoutTimer.Start()
+
     redrawControlsOnFormResize
     $main_form.ShowDialog() | Out-Null
 
     $retVal = $nameBox.Text
     
     return $retval
+
 }
 
 function redrawControlsOnFormResize {
@@ -69,33 +96,30 @@ function redrawControlsOnFormResize {
     $okButton.Location = New-Object System.Drawing.Point(($main_form.Width - $outerHMargin - $okButton.Width),($nameBox.Bottom + $internalVSpacing))
 }
 
-# Hämta TSEnvironment och slå upp namnet
+# Hämta TSEnvironment och gammalt datornamn
 $TSEnv = New-Object -COMObject Microsoft.SMS.TSEnvironment
-$OSDComputerName = $TSEnv.value("_smstsmachinename")
+$OSDComputerName = $TSEnv.value('_SMSTSMachineName')
 
-<# Utkommenterat för test
-# Slå upp namnet mot AD
-$ldapfilter="(name=$OSDComputerName)"
-$numADComps = get-adcomputer -LDAPFilter $ldapfilter | Measure-Object | Select-Object -ExpandProperty count
+<#
+# Testning
+#$OSDComputerName = 'IT08556'
+#$OSDComputerName = 'nonexistent computer'
 #>
 
-# För testning
-#$numADComps = 1    # Hårdställer en dator hittad i AD
-$numADComps = 0    # Hårdställer ingen dator hittad i AD
+$ldapfilter = "(cn=$OSDComputerName)"
+$numFound = Get-ADComputer -LDAPFilter $ldapfilter | Measure-Object | Select-Object -ExpandProperty Count
 
-if ( $numADComps -gt 0 ) {
-    # Datorkontot existerar, gör inget
-    # Testning, ska plockas bort sen. Här ska inget göras i första versionen.
-    $dummyName = 'dummyname'
-    $OSDComputerName = Get-CustomComputerName -DefaultComputerName $dummyName -Verbose
+if ( $numFound -lt 1 ) {
+    $waitTimer = New-Object System.Windows.Forms.Timer
+    $waitTimer.Interval = 1000
 
-} else {
-    # Inget datorkonto hittat, slå upp och föreslå serienummer
+    # Slå upp och föreslå serienummer
     $computerSerialNumber = Get-CimInstance win32_bios | Select-Object -ExpandProperty Serialnumber
+    $OSDComputerName = Get-CustomComputerName -DefaultComputerName $computerSerialNumber -TimeoutTimer $waitTimer
 
-    $OSDComputerName = Get-CustomComputerName -DefaultComputerName $computerSerialNumber -Verbose
+    $waitTimer.Dispose()
 }
 
 # Sätt värdet för datornamn i TSEnvironment
-$TSEnv.Value("osdcomputername") = $OSDComputerName
-
+$TSEnv.Value("OSDComputerName") = $OSDComputerName
+# Write-Host $OSDComputerName
