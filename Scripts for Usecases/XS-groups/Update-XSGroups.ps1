@@ -14,6 +14,8 @@ param(
     [Parameter()][ValidateSet('Groups','Members')][string[]]$UpdateType = ('Members')       # Anger om grupperna eller medlemmarna ska uppdateras.
 )
 
+$WhatIfPreference=$true
+
 #Requires -modules ImportExcel
 Import-Module ImportExcel
 
@@ -223,12 +225,12 @@ if ( $UpdateType -eq 'Groups' ) {
     Read-Host -Prompt $message
 
     # Hämta existerande grupper från Active Directory till hashtable
-    # Ska ha mailadress som key och 'exist' som värde
+    # Ska ha mailadress som key och $groupExists som värde
     $message = 'Här ska existerande grupper hämtas och skrivas till dictionary'
     Read-Host -Prompt $message
 
     $curGroups = @{}
-    #$groupExists
+    Get-ADGroup -LDAPFilter $UpdateIDFilter -Properties mail | ForEach-Object { $curMail = $_.mail; $curGroups[$curMail]=$groupExists}
 
     # Loopa igenom alla hittade Worksheets
     foreach ( $sheet in $worksheets ) {
@@ -263,7 +265,7 @@ if ( $UpdateType -eq 'Groups' ) {
                     $candMail = "$arvikaCOMSKolform.$curAcr.$cleanedCurDept$groupXSIdentifier@$arvikaDomain".ToLower()
                     Write-Verbose "Kandidatgrupp`: $candMail"
                     if ( $curGroups.ContainsKey($candMail) ) {
-                        # Gruppen är redan skapad, markera att den ska fortsätta finnas
+                        # Gruppen är redan skapad, markera att den ska fortsätta finnas genom att byta ut $groupExists mot $keepGroup
                         Write-Verbose "Gruppen $candMail existerar redan bland kandidaterna"
                         $curGroups[$candMail] = $keepGroup
                     } else {
@@ -272,6 +274,7 @@ if ( $UpdateType -eq 'Groups' ) {
                             Write-Verbose "Skapar gruppen $candMail"
                             Write-Host "Här ska det vara en funktion som skapar gruppen $candMail"
                             # Lägg till den bland de befintliga grupperna om den kunde skapas
+                            # Sätt att den ska behållas
                             $curGroups[$candMail]=$keepGroup
                         }
                         
@@ -283,6 +286,8 @@ if ( $UpdateType -eq 'Groups' ) {
     }
 
     # Loopa igenom befintliga grupper och ta bort de som inte ska vara kvar
+    # Detta är de grupper som fortfarande har $groupExists och inte fått det ändrat
+    # till $keepGroup i dictionaryn
     foreach ( $mail in $curGroups.Keys ) {
         if ( $curGroups[$mail] -match $keepGroup ) {
             # Gruppen ska finnas kvar
@@ -291,7 +296,8 @@ if ( $UpdateType -eq 'Groups' ) {
             # Gruppen ska tas bort
             if ($PSCmdlet.ShouldProcess("Tar bort gruppen $mail",$mail,'Ta bort')) {
                 Write-Verbose "Tar bort gruppen $mail"
-                Write-Host "Här ska det vara en funktion som tar bort gruppen"
+                $ldapfilter = "(mail=$mail)"
+                Get-ADGroup -LDAPFilter $ldapfilter | Remove-ADGroup -Confirm:$false
             }
         }
     }
@@ -349,8 +355,8 @@ if ( $UpdateType -eq 'Groups' ) {
                     $testPermission = $inputUsers[$curID12].XS
                     Write-Verbose "Hittade data för personal`: $curID12, $testDept, $testTitle, $testPermission"
 
-                    # Hämta motsvarande använadrnamn från Active Directory och lagra.
-                    Write-Verbose "Hämtar mailadressen för $curID12"
+                    # Hämta motsvarande användarnamn från Active Directory och lagra.
+                    Write-Verbose "Hämtar användarnamnet för $curID12"
                     $ldapfilter = "(personNummer=$curID12)"
                     $curUsername = Get-ADUser -LDAPFilter $ldapfilter | Select-Object -ExpandProperty sAMAccountName
                     $inputUsers[$curID12]['Username'] = $curUsername
@@ -366,9 +372,7 @@ if ( $UpdateType -eq 'Groups' ) {
             # Här ska gruppmedlemsskapen skötas
 
             # Slå upp befintliga XS-grupper
-            $arvikaCOMUpdateID = 'LS36330'
-            $ldapfilter = "(arvikaCOMUpdateID=$arvikaCOMUpdateID)"
-            $curGroups = Get-ADGroup -LDAPFilter $ldapfilter -Properties arvikaCOMKlass,arvikaCOMEnhet,arvikaCOMSkolform
+            $curGroups = Get-ADGroup -LDAPFilter $UpdateIDFilter -Properties arvikaCOMKlass,arvikaCOMEnhet,arvikaCOMSkolform
             foreach ( $group in $groups ) {
                 $curDept = $group.arvikaCOMKlass
 
