@@ -153,6 +153,47 @@ Function Get-FileName {
     $OpenFileDialog.filename
 }
 
+function Compare-HashtableKeys {
+    <#
+    Funktionen jämför hashtables.
+    Utan switchen $CommonKeys kommer alla nycklar ur $data som saknas i $comp att returneras
+    som nycklar i en ny hashtable, med värdet diff för alla nycklar
+    Med switchen $CommonKeys kommer alla nycklar ur $data som också finns i $comp att returneras
+    som nycklar i en ny hashtable, med värdet common för alla nycklar
+    #>
+
+    [cmdletbinding()]
+    param(
+        [Parameter(Mandatory)][hashtable]$Data,
+        [Parameter(Mandatory)][hashtable]$Comp,
+        [Parameter()][switch]$CommonKeys
+    )
+
+    $return = @{}
+
+    if ( $CommonKeys ) {
+        foreach ( $key in $Data.Keys ) {
+            if ( $Comp.ContainsKey( $key ) ) {
+                # Gemensamma vÃ¤rden ska returneras, lÃ¤gg till i returen
+                $return[$key]='common'
+            } else {
+                # GÃ¶r inget
+            }
+        }
+    } else {
+        foreach ( $key in $Data.Keys ) {
+            if ( $Comp.ContainsKey( $key ) ) {
+                # Diffen ska returneras, gÃ¶r inget
+            } else {
+                # Skilda vÃ¤rden ska returneras, lÃ¤gg till i returen
+                $return[$key]='diff'
+            }
+        }
+    }
+
+    return $return
+}
+
 $rektorPattern = '^Rektor [\w]{2,3}$'
 $budgetPattern = '^Budget [\w]{2,3}$'
 $identifierPattern = '^[\d]{8}-[\d]{4}$'
@@ -227,10 +268,13 @@ if ( $UpdateType -eq 'Groups' ) {
                         $curGroups[$candMail] = $keepGroup
                     } else {
                         # Gruppen finns inte, skapar den
-                        Write-Verbose "Skapar gruppen $candMail"
-                        Write-Host "Här ska det vara en funktion som skapar gruppen $candMail"
-                        # Lägg till den bland de befintliga grupperna om den kunde skapas
-                        $curGroups[$candMail]=$keepGroup
+                        if ( $PSCmdlet.ShouldProcess("Skapar gruppen $candMail",$candMail,"Skapar grupp") ) {
+                            Write-Verbose "Skapar gruppen $candMail"
+                            Write-Host "Här ska det vara en funktion som skapar gruppen $candMail"
+                            # Lägg till den bland de befintliga grupperna om den kunde skapas
+                            $curGroups[$candMail]=$keepGroup
+                        }
+                        
                     }
                 }
             }
@@ -245,7 +289,7 @@ if ( $UpdateType -eq 'Groups' ) {
             Write-Verbose "Behåller gruppen $mail"
         } else {
             # Gruppen ska tas bort
-            if ($PSCmdlet.ShouldProcess($mail,'Ta bort')) {
+            if ($PSCmdlet.ShouldProcess("Tar bort gruppen $mail",$mail,'Ta bort')) {
                 Write-Verbose "Tar bort gruppen $mail"
                 Write-Host "Här ska det vara en funktion som tar bort gruppen"
             }
@@ -267,7 +311,7 @@ if ( $UpdateType -eq 'Groups' ) {
         } else {
 
             # Hämta data från Excelbladet
-            Write-Verbose "Avdelning`: $curWSName"
+            Write-Verbose "Förskola`: $curWSName"
             $curWBName = $sheet.Excelfile
             $curWBPath = $sheet.Path
             $curFile = "$curWBPath\$curWBName"
@@ -305,19 +349,51 @@ if ( $UpdateType -eq 'Groups' ) {
                     $testPermission = $inputUsers[$curID12].XS
                     Write-Verbose "Hittade data för personal`: $curID12, $testDept, $testTitle, $testPermission"
 
-                    # Hämta motsvarande mailadress från Active Directory och lagra.
+                    # Hämta motsvarande använadrnamn från Active Directory och lagra.
                     Write-Verbose "Hämtar mailadressen för $curID12"
                     $ldapfilter = "(personNummer=$curID12)"
-                    $curUserMail = Get-ADUser -LDAPFilter $ldapfilter -mail | Select-Object -ExpandProperty mail
-                    $inputUsers[$curID12]['mail'] = $curUserMail
-                    # Hämta även sAMAccountName, behöver jag ha mailadress då?
+                    $curUsername = Get-ADUser -LDAPFilter $ldapfilter | Select-Object -ExpandProperty sAMAccountName
+                    $inputUsers[$curID12]['Username'] = $curUsername
                     # Uppdatera användardata baserat på vad som hittats
                     Write-Host "Här ska det vara en funktion som uppdaterar användardata."
-                    #Get-ADUser -LDAPFilter $ldapfilter | Set-ADUser -Replace 
+                    if ( $PSCmdlet.ShouldProcess( "Uppdaterar data för $curUsername",$curUsername,"Uppdatera data")) {
+                        Get-ADUser -LDAPFilter $ldapfilter | Set-ADUser -Replace @{title="$curClearTitle"}
+                    }
                 }
                 
             }
+
+            # Här ska gruppmedlemsskapen skötas
+
+            # Slå upp befintliga XS-grupper
+            $arvikaCOMUpdateID = 'LS36330'
+            $ldapfilter = "(arvikaCOMUpdateID=$arvikaCOMUpdateID)"
+            $curGroups = Get-ADGroup -LDAPFilter $ldapfilter -Properties arvikaCOMKlass,arvikaCOMEnhet,arvikaCOMSkolform
+            foreach ( $group in $groups ) {
+                $curDept = $group.arvikaCOMKlass
+
+                # Hämta nuvarande användare ur gruppen till en dictionary
+                $curUsers = @{}
+                $group | Get-ADGroupMember | ForEach-Object { $curUsername = $_.sAMAccountName; $curUsers[$curUsername]=$curDept }
+
+                # Hämta motsvarande användare ur användarunderlaget
+                $curInputUsers = @{}
+                $inputUsers.GetEnumerator().Where{ $_.Value.Dept -eq $curDept } | ForEach-Object { $curUserName = $_.Value.Username; $curInputUsers[$curUserName]='inputuser' }
+
+                # Skapa hashtables med användare att lägga till resp ta bort
+                $usersToAdd = Compare-HashtableKeys -Data $curInputUsers -Comp $curUsers
+                $usersToRemove = Compare-HashtableKeys -Data $curUsers -Comp $curInputUsers
+
+                # Lägg till och ta bort användare ur gruppen
+                if ( $PSCmdlet.ShouldProcess( "Lägger till användare i gruppen $group",$group,"Lägg till användare" ) ) {
+                    $usersToAdd.Keys | Add-ADPrincipalGroupMembership -MemberOf $group
+                }
+                if ( $PSCmdlet.ShouldProcess( "Tar bort användare ur gruppen $group",$group,"Ta bort användare" ) ) {
+                    $usersToRemove.Keys | Remove-ADPrincipalGroupMembership -MemberOf $group -Confirm:$false
+                }
                 
+                
+            }
         }
     }
     #>
