@@ -11,6 +11,7 @@ arvikaCOMUpdateID. Ska vara "LS36330"
 [cmdletbinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)][string]$BaseFolder,          # Mappen med excelbladen
+    [Parameter(Mandatory)][string]$AutomaticGroupOU,
     [Parameter()][ValidateSet('Groups','Members')][string[]]$UpdateType = ('Members')       # Anger om grupperna eller medlemmarna ska uppdateras.
 )
 
@@ -20,7 +21,8 @@ $WhatIfPreference=$true
 Import-Module ImportExcel
 
 # Filter för uppdaterings ID
-$UpdateIDFilter='(arvikaCOMUpdateID=LS36330)'
+$arvikaCOMUpdateID = 'LS36330'
+$UpdateIDFilter="(arvikaCOMUpdateID=$arvikaCOMUpdateID)"
 $arvikaCOMSKolform='FSK'
 $arvikaDomain='arvika.com'
 $groupXSIdentifier='XS'
@@ -196,6 +198,23 @@ function Compare-HashtableKeys {
     return $return
 }
 
+function New-XSGroup {
+    [cmdletbinding(SupportsShouldProcess)]
+    param (
+        [Parameter(Mandatory)][string]$GroupOU,
+        [Parameter(Mandatory)][string]$Groupname,
+        [Parameter(Mandatory)][string]$Groupmail,
+        [Parameter(Mandatory)][string]$UpdateID
+    )
+
+    $groupInfo='<ignore/>'  # Data för gruppens info-attribut. Medför att den vanliga gruppuppdateringen inte körs.
+
+    if ( $PSCmdlet.ShouldProcess("Skapar gruppen $Groupname med epost-adressen $GroupMail",$Groupname,"Skapar grupp") ) {
+        BNew-ADGroup -Name $Groupname -DisplayName $Groupname -SamAccountName $Groupname -GroupCategory Security -GroupScope Global -Path $GroupOU -PassThru | Set-ADGroup -Replace @{mail="$Groupmail";info="$groupInfo";arvikaCOMUpdateID="$UpdateID"}
+    }
+
+}
+
 $rektorPattern = '^Rektor [\w]{2,3}$'
 $budgetPattern = '^Budget [\w]{2,3}$'
 $identifierPattern = '^[\d]{8}-[\d]{4}$'
@@ -262,21 +281,19 @@ if ( $UpdateType -eq 'Groups' ) {
                     [string]$curAcr = $unitAcrData[$curWSName]
                     Write-Verbose "Hittade data för grupper`: $curAcr, $curDept"
                     $cleanedCurDept = $curDept | ConvertTo-ANCAlfaNumeric
+                    $candName = "$arvikaCOMSKolform$curAcr$curDept$groupXSIdentifier"
                     $candMail = "$arvikaCOMSKolform.$curAcr.$cleanedCurDept$groupXSIdentifier@$arvikaDomain".ToLower()
-                    Write-Verbose "Kandidatgrupp`: $candMail"
+                    Write-Verbose "Kandidatgrupp`: $candName $candMail"
                     if ( $curGroups.ContainsKey($candMail) ) {
                         # Gruppen är redan skapad, markera att den ska fortsätta finnas genom att byta ut $groupExists mot $keepGroup
                         Write-Verbose "Gruppen $candMail existerar redan bland kandidaterna"
                         $curGroups[$candMail] = $keepGroup
                     } else {
                         # Gruppen finns inte, skapar den
-                        if ( $PSCmdlet.ShouldProcess("Skapar gruppen $candMail",$candMail,"Skapar grupp") ) {
-                            Write-Verbose "Skapar gruppen $candMail"
-                            Write-Host "Här ska det vara en funktion som skapar gruppen $candMail"
-                            # Lägg till den bland de befintliga grupperna om den kunde skapas
-                            # Sätt att den ska behållas
-                            $curGroups[$candMail]=$keepGroup
-                        }
+                        # Funktionen hanterar -Whatif internt
+                        New-XSGroup -GroupOU $AutomaticGroupOU -Groupname $candName -Groupmail $candMail -UpdateID $arvikaCOMUpdateID -WhatIf:$WhatIfPreference
+                        # Lägg till den bland de befintliga grupperna och sätt att den ska behållas
+                        $curGroups[$candMail]=$keepGroup
                         
                     }
                 }
@@ -403,4 +420,3 @@ if ( $UpdateType -eq 'Groups' ) {
     #>
     
 }
-
