@@ -208,9 +208,10 @@ function New-XSGroup {
     )
 
     $groupInfo='<ignore/>'  # Data för gruppens info-attribut. Medför att den vanliga gruppuppdateringen inte körs.
+    $XSGroupdescription='XS-grupp för förskolan, #36330'
 
     if ( $PSCmdlet.ShouldProcess("Skapar gruppen $Groupname med epost-adressen $GroupMail",$Groupname,"Skapar grupp") ) {
-        New-ADGroup -Name $Groupname -DisplayName $Groupname -SamAccountName $Groupname -GroupCategory Security -GroupScope Global -Path $GroupOU -PassThru | Set-ADGroup -Replace @{mail="$Groupmail";info="$groupInfo";arvikaCOMUpdateID="$UpdateID"}
+        New-ADGroup -Name $Groupname -DisplayName $Groupname -SamAccountName $Groupname -Description $XSGroupdescription -GroupCategory Security -GroupScope Global -Path $GroupOU -PassThru | Set-ADGroup -Replace @{mail="$Groupmail";info="$groupInfo";arvikaCOMUpdateID="$UpdateID"}
     }
 
 }
