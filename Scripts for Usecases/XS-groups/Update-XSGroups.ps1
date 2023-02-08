@@ -23,7 +23,7 @@ Import-Module ImportExcel
 # Filter för uppdaterings ID
 $arvikaCOMUpdateID = 'LS36330'
 $UpdateIDFilter="(arvikaCOMUpdateID=$arvikaCOMUpdateID)"
-$arvikaCOMSKolform='FSK'
+$arvikaCOMSkolform='FSK'
 $arvikaDomain='arvika.com'
 $groupXSIdentifier='XS'
 $groupExists='exist'
@@ -204,13 +204,17 @@ function New-XSGroup {
         [Parameter(Mandatory)][string]$GroupOU,
         [Parameter(Mandatory)][string]$Groupname,
         [Parameter(Mandatory)][string]$Groupmail,
+        [Parameter(Mandatory)][string]$Klass,
+        [Parameter(Mandatory)][string]$Enhet,
+        [Parameter(Mandatory)][string]$Skolform,
         [Parameter(Mandatory)][string]$UpdateID
     )
 
     $groupInfo='<ignore/>'  # Data för gruppens info-attribut. Medför att den vanliga gruppuppdateringen inte körs.
+    $XSGroupdescription='XS-grupp för förskolan, #36330'
 
     if ( $PSCmdlet.ShouldProcess("Skapar gruppen $Groupname med epost-adressen $GroupMail",$Groupname,"Skapar grupp") ) {
-        BNew-ADGroup -Name $Groupname -DisplayName $Groupname -SamAccountName $Groupname -GroupCategory Security -GroupScope Global -Path $GroupOU -PassThru | Set-ADGroup -Replace @{mail="$Groupmail";info="$groupInfo";arvikaCOMUpdateID="$UpdateID"}
+        New-ADGroup -Name $Groupname -DisplayName $Groupname -SamAccountName $Groupname -Description $XSGroupdescription -GroupCategory Security -GroupScope Global -Path $GroupOU -PassThru | Set-ADGroup -Replace @{mail="$Groupmail";info="$groupInfo";arvikaCOMUpdateID="$UpdateID";arvikaCOMKlass="$Klass";arvikaCOMEnhet="$Enhet";arvikaCOMSkolform="$Skolform"}
     }
 
 }
@@ -281,8 +285,8 @@ if ( $UpdateType -eq 'Groups' ) {
                     [string]$curAcr = $unitAcrData[$curWSName]
                     Write-Verbose "Hittade data för grupper`: $curAcr, $curDept"
                     $cleanedCurDept = $curDept | ConvertTo-ANCAlfaNumeric
-                    $candName = "$arvikaCOMSKolform$curAcr$curDept$groupXSIdentifier"
-                    $candMail = "$arvikaCOMSKolform.$curAcr.$cleanedCurDept$groupXSIdentifier@$arvikaDomain".ToLower()
+                    $candName = "$arvikaCOMSkolform$curAcr$curDept$groupXSIdentifier"
+                    $candMail = "$arvikaCOMSkolform.$curAcr.$cleanedCurDept$groupXSIdentifier@$arvikaDomain".ToLower()
                     Write-Verbose "Kandidatgrupp`: $candName $candMail"
                     if ( $curGroups.ContainsKey($candMail) ) {
                         # Gruppen är redan skapad, markera att den ska fortsätta finnas genom att byta ut $groupExists mot $keepGroup
@@ -291,7 +295,7 @@ if ( $UpdateType -eq 'Groups' ) {
                     } else {
                         # Gruppen finns inte, skapar den
                         # Funktionen hanterar -Whatif internt
-                        New-XSGroup -GroupOU $AutomaticGroupOU -Groupname $candName -Groupmail $candMail -UpdateID $arvikaCOMUpdateID -WhatIf:$WhatIfPreference
+                        New-XSGroup -GroupOU $AutomaticGroupOU -Groupname $candName -Groupmail $candMail -Klass $curDept -Enhet $curWSName -Skolform $arvikaCOMSkolform -UpdateID $arvikaCOMUpdateID -WhatIf:$WhatIfPreference
                         # Lägg till den bland de befintliga grupperna och sätt att den ska behållas
                         $curGroups[$candMail]=$keepGroup
                         
@@ -305,12 +309,14 @@ if ( $UpdateType -eq 'Groups' ) {
     # Loopa igenom befintliga grupper och ta bort de som inte ska vara kvar
     # Detta är de grupper som fortfarande har $groupExists och inte fått det ändrat
     # till $keepGroup i dictionaryn
+    Write-verbose "Går igenom listan över befintliga grupper för att ta bort de som inte hittats bland kandidaterna"
     foreach ( $mail in $curGroups.Keys ) {
         if ( $curGroups[$mail] -match $keepGroup ) {
             # Gruppen ska finnas kvar
             Write-Verbose "Behåller gruppen $mail"
         } else {
             # Gruppen ska tas bort
+            Write-Verbose "Gruppen $mail finns på listan över grupper att ta bort"
             if ($PSCmdlet.ShouldProcess("Tar bort gruppen $mail",$mail,'Ta bort')) {
                 Write-Verbose "Tar bort gruppen $mail"
                 $ldapfilter = "(mail=$mail)"
@@ -387,30 +393,61 @@ if ( $UpdateType -eq 'Groups' ) {
             }
 
             # Här ska gruppmedlemsskapen skötas
+            Write-Verbose 'Uppdatering av gruppmedlemsskap startar'
 
             # Slå upp befintliga XS-grupper
-            $curGroups = Get-ADGroup -LDAPFilter $UpdateIDFilter -Properties arvikaCOMKlass,arvikaCOMEnhet,arvikaCOMSkolform
-            foreach ( $group in $groups ) {
+            # Skapa ett filter baserat på enhet och arvikaCOMUpdateID
+            $curGroupFilter="(&$UpdateIDFilter(arvikaCOMEnhet=$curWSName))"
+            $curGroups = Get-ADGroup -LDAPFilter $curGroupFilter -Properties arvikaCOMKlass,arvikaCOMEnhet,arvikaCOMSkolform
+            foreach ( $group in $curGroups ) {
                 $curDept = $group.arvikaCOMKlass
+                Write-Verbose "Hanterar gruppen för $curDept"
 
                 # Hämta nuvarande användare ur gruppen till en dictionary
                 $curUsers = @{}
                 $group | Get-ADGroupMember | ForEach-Object { $curUsername = $_.sAMAccountName; $curUsers[$curUsername]=$curDept }
+                if ($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
+                    foreach ( $key in $curUsers.Keys ) {
+                        Write-Verbose "Användaren $key finns i gruppen för $curDept"
+                    }
+                }
 
                 # Hämta motsvarande användare ur användarunderlaget
                 $curInputUsers = @{}
-                $inputUsers.GetEnumerator().Where{ $_.Value.Dept -eq $curDept } | ForEach-Object { $curUserName = $_.Value.Username; $curInputUsers[$curUserName]='inputuser' }
+                $inputUsers.GetEnumerator().Where{ ($_.Value.Dept -eq $curDept) -and ( $_.Value.XS -eq $true ) } | ForEach-Object { $curUserName = $_.Value.Username; $curInputUsers[$curUserName]='inputuser' }
+
+                if ($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
+                    foreach ( $key in $curInputUsers.Keys ) {
+                        Write-Verbose "Användaren $key ska finnas i gruppen för $curDept"
+                    }
+                }
 
                 # Skapa hashtables med användare att lägga till resp ta bort
                 $usersToAdd = Compare-HashtableKeys -Data $curInputUsers -Comp $curUsers
                 $usersToRemove = Compare-HashtableKeys -Data $curUsers -Comp $curInputUsers
 
                 # Lägg till och ta bort användare ur gruppen
+                if ( $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
+                    Write-Verbose "Tillägg i gruppen $group"
+                    foreach ( $key in $usersToAdd.Keys ) {
+                        Write-Verbose "Lägger till användaren $key i gruppen $group"
+                    }
+
+                    Write-Verbose "Borttagningar ur gruppen $group"
+                    foreach ( $key in $usersToRemove.Keys ) {
+                        Write-Verbose "Tar bort användaren $key från gruppen $group"
+                    }
+                }
+
                 if ( $PSCmdlet.ShouldProcess( "Lägger till användare i gruppen $group",$group,"Lägg till användare" ) ) {
-                    $usersToAdd.Keys | Add-ADPrincipalGroupMembership -MemberOf $group
+                    if ( $usersToAdd.Count -gt 0 ) {
+                        $usersToAdd.Keys | Get-ADUser | Add-ADPrincipalGroupMembership -MemberOf $group
+                    }
                 }
                 if ( $PSCmdlet.ShouldProcess( "Tar bort användare ur gruppen $group",$group,"Ta bort användare" ) ) {
-                    $usersToRemove.Keys | Remove-ADPrincipalGroupMembership -MemberOf $group -Confirm:$false
+                    if ($usersToRemove.Count -gt 0 ) {
+                        $usersToRemove.Keys | Get-ADUser | Remove-ADPrincipalGroupMembership -MemberOf $group -Confirm:$false
+                    }
                 }
                 
                 
