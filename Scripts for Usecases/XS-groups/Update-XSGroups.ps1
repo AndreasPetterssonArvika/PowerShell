@@ -397,10 +397,16 @@ if ( $UpdateType -eq 'Groups' ) {
             $curGroups = Get-ADGroup -LDAPFilter $UpdateIDFilter -Properties arvikaCOMKlass,arvikaCOMEnhet,arvikaCOMSkolform
             foreach ( $group in $groups ) {
                 $curDept = $group.arvikaCOMKlass
+                Write-Verbose "Hanterar gruppen för $curDept"
 
                 # Hämta nuvarande användare ur gruppen till en dictionary
                 $curUsers = @{}
                 $group | Get-ADGroupMember | ForEach-Object { $curUsername = $_.sAMAccountName; $curUsers[$curUsername]=$curDept }
+                if ($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
+                    foreach ( $key in $curUsers.Keys ) {
+                        Write-Verbose "Användaren $key ska läggas in i gruppen för $curDept"
+                    }
+                }
 
                 # Hämta motsvarande användare ur användarunderlaget
                 $curInputUsers = @{}
