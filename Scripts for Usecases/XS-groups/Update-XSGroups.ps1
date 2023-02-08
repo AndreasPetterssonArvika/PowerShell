@@ -410,7 +410,7 @@ if ( $UpdateType -eq 'Groups' ) {
 
                 # Hämta motsvarande användare ur användarunderlaget
                 $curInputUsers = @{}
-                $inputUsers.GetEnumerator().Where{ $_.Value.Dept -eq $curDept } | ForEach-Object { $curUserName = $_.Value.Username; $curInputUsers[$curUserName]='inputuser' }
+                $inputUsers.GetEnumerator().Where{ ($_.Value.Dept -eq $curDept) -and ( $_.Value.XS -eq $true ) } | ForEach-Object { $curUserName = $_.Value.Username; $curInputUsers[$curUserName]='inputuser' }
 
                 # Skapa hashtables med användare att lägga till resp ta bort
                 $usersToAdd = Compare-HashtableKeys -Data $curInputUsers -Comp $curUsers
