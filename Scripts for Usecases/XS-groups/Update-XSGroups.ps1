@@ -408,13 +408,19 @@ if ( $UpdateType -eq 'Groups' ) {
                 $group | Get-ADGroupMember | ForEach-Object { $curUsername = $_.sAMAccountName; $curUsers[$curUsername]=$curDept }
                 if ($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
                     foreach ( $key in $curUsers.Keys ) {
-                        Write-Verbose "Användaren $key ska läggas in i gruppen för $curDept"
+                        Write-Verbose "Användaren $key finns i gruppen för $curDept"
                     }
                 }
 
                 # Hämta motsvarande användare ur användarunderlaget
                 $curInputUsers = @{}
                 $inputUsers.GetEnumerator().Where{ ($_.Value.Dept -eq $curDept) -and ( $_.Value.XS -eq $true ) } | ForEach-Object { $curUserName = $_.Value.Username; $curInputUsers[$curUserName]='inputuser' }
+
+                if ($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
+                    foreach ( $key in $curInputUsers.Keys ) {
+                        Write-Verbose "Användaren $key ska finnas i gruppen för $curDept"
+                    }
+                }
 
                 # Skapa hashtables med användare att lägga till resp ta bort
                 $usersToAdd = Compare-HashtableKeys -Data $curInputUsers -Comp $curUsers
