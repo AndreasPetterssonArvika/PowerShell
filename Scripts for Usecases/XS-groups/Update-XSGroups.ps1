@@ -409,6 +409,18 @@ if ( $UpdateType -eq 'Groups' ) {
                 $usersToRemove = Compare-HashtableKeys -Data $curUsers -Comp $curInputUsers
 
                 # Lägg till och ta bort användare ur gruppen
+                if ( $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
+                    Write-Verbose "Tillägg i gruppen $group"
+                    foreach ( $key in $usersToAdd.Keys ) {
+                        Write-Verbose "Lägger till användaren $key i gruppen $group"
+                    }
+
+                    Write-Verbose "Borttagningar ur gruppen $group"
+                    foreach ( $key in $usersToAdd.Keys ) {
+                        Write-Verbose "Tar bort användaren $key från gruppen $group"
+                    }
+                }
+
                 if ( $PSCmdlet.ShouldProcess( "Lägger till användare i gruppen $group",$group,"Lägg till användare" ) ) {
                     $usersToAdd.Keys | Add-ADPrincipalGroupMembership -MemberOf $group
                 }
