@@ -395,7 +395,7 @@ if ( $UpdateType -eq 'Groups' ) {
 
             # Slå upp befintliga XS-grupper
             $curGroups = Get-ADGroup -LDAPFilter $UpdateIDFilter -Properties arvikaCOMKlass,arvikaCOMEnhet,arvikaCOMSkolform
-            foreach ( $group in $groups ) {
+            foreach ( $group in $curGroups ) {
                 $curDept = $group.arvikaCOMKlass
                 Write-Verbose "Hanterar gruppen för $curDept"
 
