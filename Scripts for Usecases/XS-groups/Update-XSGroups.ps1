@@ -311,6 +311,7 @@ if ( $UpdateType -eq 'Groups' ) {
             Write-Verbose "Behåller gruppen $mail"
         } else {
             # Gruppen ska tas bort
+            Write-Verbose "Gruppen $mail finns på listan över grupper att ta bort"
             if ($PSCmdlet.ShouldProcess("Tar bort gruppen $mail",$mail,'Ta bort')) {
                 Write-Verbose "Tar bort gruppen $mail"
                 $ldapfilter = "(mail=$mail)"
