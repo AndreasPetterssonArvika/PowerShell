@@ -424,7 +424,7 @@ if ( $UpdateType -eq 'Groups' ) {
                     }
 
                     Write-Verbose "Borttagningar ur gruppen $group"
-                    foreach ( $key in $usersToAdd.Keys ) {
+                    foreach ( $key in $usersToRemove.Keys ) {
                         Write-Verbose "Tar bort användaren $key från gruppen $group"
                     }
                 }
