@@ -23,7 +23,7 @@ Import-Module ImportExcel
 # Filter för uppdaterings ID
 $arvikaCOMUpdateID = 'LS36330'
 $UpdateIDFilter="(arvikaCOMUpdateID=$arvikaCOMUpdateID)"
-$arvikaCOMSKolform='FSK'
+$arvikaCOMSkolform='FSK'
 $arvikaDomain='arvika.com'
 $groupXSIdentifier='XS'
 $groupExists='exist'
@@ -204,7 +204,9 @@ function New-XSGroup {
         [Parameter(Mandatory)][string]$GroupOU,
         [Parameter(Mandatory)][string]$Groupname,
         [Parameter(Mandatory)][string]$Groupmail,
-        [Parameter(Mandatory)][string]$Department,
+        [Parameter(Mandatory)][string]$Klass,
+        [Parameter(Mandatory)][string]$Enhet,
+        [Parameter(Mandatory)][string]$Skolform,
         [Parameter(Mandatory)][string]$UpdateID
     )
 
@@ -212,7 +214,7 @@ function New-XSGroup {
     $XSGroupdescription='XS-grupp för förskolan, #36330'
 
     if ( $PSCmdlet.ShouldProcess("Skapar gruppen $Groupname med epost-adressen $GroupMail",$Groupname,"Skapar grupp") ) {
-        New-ADGroup -Name $Groupname -DisplayName $Groupname -SamAccountName $Groupname -Description $XSGroupdescription -GroupCategory Security -GroupScope Global -Path $GroupOU -PassThru | Set-ADGroup -Replace @{mail="$Groupmail";info="$groupInfo";arvikaCOMUpdateID="$UpdateID";arvikaCOMKlass="$Department"}
+        New-ADGroup -Name $Groupname -DisplayName $Groupname -SamAccountName $Groupname -Description $XSGroupdescription -GroupCategory Security -GroupScope Global -Path $GroupOU -PassThru | Set-ADGroup -Replace @{mail="$Groupmail";info="$groupInfo";arvikaCOMUpdateID="$UpdateID";arvikaCOMKlass="$Klass";arvikaCOMEnhet="$Enhet";arvikaCOMSkolform="$Skolform"}
     }
 
 }
@@ -283,8 +285,8 @@ if ( $UpdateType -eq 'Groups' ) {
                     [string]$curAcr = $unitAcrData[$curWSName]
                     Write-Verbose "Hittade data för grupper`: $curAcr, $curDept"
                     $cleanedCurDept = $curDept | ConvertTo-ANCAlfaNumeric
-                    $candName = "$arvikaCOMSKolform$curAcr$curDept$groupXSIdentifier"
-                    $candMail = "$arvikaCOMSKolform.$curAcr.$cleanedCurDept$groupXSIdentifier@$arvikaDomain".ToLower()
+                    $candName = "$arvikaCOMSkolform$curAcr$curDept$groupXSIdentifier"
+                    $candMail = "$arvikaCOMSkolform.$curAcr.$cleanedCurDept$groupXSIdentifier@$arvikaDomain".ToLower()
                     Write-Verbose "Kandidatgrupp`: $candName $candMail"
                     if ( $curGroups.ContainsKey($candMail) ) {
                         # Gruppen är redan skapad, markera att den ska fortsätta finnas genom att byta ut $groupExists mot $keepGroup
@@ -293,7 +295,7 @@ if ( $UpdateType -eq 'Groups' ) {
                     } else {
                         # Gruppen finns inte, skapar den
                         # Funktionen hanterar -Whatif internt
-                        New-XSGroup -GroupOU $AutomaticGroupOU -Groupname $candName -Groupmail $candMail -Department $curDept -UpdateID $arvikaCOMUpdateID -WhatIf:$WhatIfPreference
+                        New-XSGroup -GroupOU $AutomaticGroupOU -Groupname $candName -Groupmail $candMail -Klass $curDept -Enhet $curWSName -Skolform $arvikaCOMSkolform -UpdateID $arvikaCOMUpdateID -WhatIf:$WhatIfPreference
                         # Lägg till den bland de befintliga grupperna och sätt att den ska behållas
                         $curGroups[$candMail]=$keepGroup
                         
