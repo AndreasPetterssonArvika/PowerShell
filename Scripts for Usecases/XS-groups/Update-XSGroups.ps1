@@ -305,6 +305,7 @@ if ( $UpdateType -eq 'Groups' ) {
     # Loopa igenom befintliga grupper och ta bort de som inte ska vara kvar
     # Detta är de grupper som fortfarande har $groupExists och inte fått det ändrat
     # till $keepGroup i dictionaryn
+    Write-verbose "Går igenom listan över befintliga grupper för att ta bort de som inte hittats bland kandidaterna"
     foreach ( $mail in $curGroups.Keys ) {
         if ( $curGroups[$mail] -match $keepGroup ) {
             # Gruppen ska finnas kvar
