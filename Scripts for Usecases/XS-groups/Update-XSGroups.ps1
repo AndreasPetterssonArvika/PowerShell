@@ -434,10 +434,14 @@ if ( $UpdateType -eq 'Groups' ) {
                 }
 
                 if ( $PSCmdlet.ShouldProcess( "Lägger till användare i gruppen $group",$group,"Lägg till användare" ) ) {
-                    $usersToAdd.Keys | Get-ADUser | Add-ADPrincipalGroupMembership -MemberOf $group
+                    if ( $usersToAdd.Count -gt 0 ) {
+                        $usersToAdd.Keys | Get-ADUser | Add-ADPrincipalGroupMembership -MemberOf $group
+                    }
                 }
                 if ( $PSCmdlet.ShouldProcess( "Tar bort användare ur gruppen $group",$group,"Ta bort användare" ) ) {
-                    $usersToRemove.Keys | Get-ADUser | Remove-ADPrincipalGroupMembership -MemberOf $group -Confirm:$false
+                    if ($usersToRemove.Count -gt 0 ) {
+                        $usersToRemove.Keys | Get-ADUser | Remove-ADPrincipalGroupMembership -MemberOf $group -Confirm:$false
+                    }
                 }
                 
                 
