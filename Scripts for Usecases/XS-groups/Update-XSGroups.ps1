@@ -286,7 +286,7 @@ if ( $UpdateType -eq 'Groups' ) {
                     Write-Verbose "Hittade data för grupper`: $curAcr, $curDept"
                     $cleanedCurDept = $curDept | ConvertTo-ANCAlfaNumeric
                     $candName = "$arvikaCOMSkolform$curAcr$curDept$groupXSIdentifier"
-                    $candMail = "$arvikaCOMSkolform.$curAcr.$cleanedCurDept$groupXSIdentifier@$arvikaDomain".ToLower()
+                    $candMail = "$arvikaCOMSkolform.$curAcr.$cleanedCurDept.$groupXSIdentifier@$arvikaDomain".ToLower()
                     Write-Verbose "Kandidatgrupp`: $candName $candMail"
                     if ( $curGroups.ContainsKey($candMail) ) {
                         # Gruppen är redan skapad, markera att den ska fortsätta finnas genom att byta ut $groupExists mot $keepGroup
@@ -320,7 +320,7 @@ if ( $UpdateType -eq 'Groups' ) {
             if ($PSCmdlet.ShouldProcess("Tar bort gruppen $mail",$mail,'Ta bort')) {
                 Write-Verbose "Tar bort gruppen $mail"
                 $ldapfilter = "(mail=$mail)"
-                Get-ADGroup -LDAPFilter $ldapfilter | Remove-ADGroup -Confirm:$false
+                #Get-ADGroup -LDAPFilter $ldapfilter | Remove-ADGroup -Confirm:$false
             }
         }
     }
