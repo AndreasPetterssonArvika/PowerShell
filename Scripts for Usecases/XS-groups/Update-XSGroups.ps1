@@ -227,7 +227,7 @@ $drivePermissionString = 'XS'
 
 # Slå upp alla Excelfiler i mappen
 
-$worksheets = Get-ChildItem -Path $BaseFolder | Get-ExcelFileSummary | Select-Object -Property Excelfile,Path,Worksheetname -First 5
+$worksheets = Get-ChildItem -Path $BaseFolder | Get-ExcelFileSummary | Select-Object -Property Excelfile,Path,Worksheetname
 
 # Om grupperna ska uppdateras
 if ( $UpdateType -eq 'Groups' ) {
@@ -286,7 +286,7 @@ if ( $UpdateType -eq 'Groups' ) {
                     Write-Verbose "Hittade data för grupper`: $curAcr, $curDept"
                     $cleanedCurDept = $curDept | ConvertTo-ANCAlfaNumeric
                     $candName = "$arvikaCOMSkolform$curAcr$curDept$groupXSIdentifier"
-                    $candMail = "$arvikaCOMSkolform.$curAcr.$cleanedCurDept$groupXSIdentifier@$arvikaDomain".ToLower()
+                    $candMail = "$arvikaCOMSkolform.$curAcr.$cleanedCurDept.$groupXSIdentifier@$arvikaDomain".ToLower()
                     Write-Verbose "Kandidatgrupp`: $candName $candMail"
                     if ( $curGroups.ContainsKey($candMail) ) {
                         # Gruppen är redan skapad, markera att den ska fortsätta finnas genom att byta ut $groupExists mot $keepGroup
