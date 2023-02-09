@@ -227,7 +227,7 @@ $drivePermissionString = 'XS'
 
 # Slå upp alla Excelfiler i mappen
 
-$worksheets = Get-ChildItem -Path $BaseFolder | Get-ExcelFileSummary | Select-Object -Property Excelfile,Path,Worksheetname -First 5
+$worksheets = Get-ChildItem -Path $BaseFolder | Get-ExcelFileSummary | Select-Object -Property Excelfile,Path,Worksheetname
 
 # Om grupperna ska uppdateras
 if ( $UpdateType -eq 'Groups' ) {
@@ -320,7 +320,7 @@ if ( $UpdateType -eq 'Groups' ) {
             if ($PSCmdlet.ShouldProcess("Tar bort gruppen $mail",$mail,'Ta bort')) {
                 Write-Verbose "Tar bort gruppen $mail"
                 $ldapfilter = "(mail=$mail)"
-                #Get-ADGroup -LDAPFilter $ldapfilter | Remove-ADGroup -Confirm:$false
+                Get-ADGroup -LDAPFilter $ldapfilter | Remove-ADGroup -Confirm:$false
             }
         }
     }
