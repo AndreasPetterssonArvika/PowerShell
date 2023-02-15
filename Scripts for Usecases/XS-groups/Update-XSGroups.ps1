@@ -1,5 +1,6 @@
 <#
 Skriptet uppdaterar XS-grupperna baserat på Excelblad samlade i en mapp.
+Testat och kört 2023-02-09
 
 Uppgifter som ska finnas i AD för alla grupper
 arvikaCOMSkolform
