@@ -13,7 +13,8 @@ arvikaCOMUpdateID. Ska vara "LS36330"
 param(
     [Parameter(Mandatory)][string]$BaseFolder,          # Mappen med excelbladen
     [Parameter(Mandatory)][string]$AutomaticGroupOU,
-    [Parameter()][ValidateSet('Groups','Members')][string[]]$UpdateType = ('Members')       # Anger om grupperna eller medlemmarna ska uppdateras.
+    [Parameter()][ValidateSet('Groups','Members')][string[]]$UpdateType = ('Members'),       # Anger om grupperna eller medlemmarna ska uppdateras.
+    [Parameter()][switch]$UpdateUserData
 )
 
 $WhatIfPreference=$true
@@ -125,6 +126,11 @@ function Get-ClearTitleFromAbbr {
     $titleFSK='Förskollärare'
     $titleLF5Abbr='L F-5'
     $titleLF5='Lärare F-5'
+    $titleSocPAbbr='Soc.p.'
+    $titleSocP='Socialpedagog'
+    $titleLF3Abbr='L F-3'
+    $titleLF3='Lärare F-3'
+
 
     if ( $TitleAbbr -match $titleBSKAbbr ) {
         $retTitle = $titleBSK
@@ -132,6 +138,10 @@ function Get-ClearTitleFromAbbr {
         $retTitle = $titleFSK
     } elseif ( $TitleAbbr -match $titleLF5Abbr ) {
         $retTitle = $titleLF5
+    } elseif ( $TitleAbbr -match $titleSocPAbbr ) {
+        $retTitle = $titleSocP
+    } elseif ( $TitleAbbr -match $titleLF3Abbr ) {
+        $retTitle = $titleLF3
     } elseif ( $TitleAbbr ) {
         Write-Host "Ohanterad förkortning $TitleAbbr"
         $retTitle = 'Personal'
@@ -385,9 +395,10 @@ if ( $UpdateType -eq 'Groups' ) {
                     $curUsername = Get-ADUser -LDAPFilter $ldapfilter | Select-Object -ExpandProperty sAMAccountName
                     $inputUsers[$curID12]['Username'] = $curUsername
                     # Uppdatera användardata baserat på vad som hittats
-                    Write-Host "Här ska det vara en funktion som uppdaterar användardata."
-                    if ( $PSCmdlet.ShouldProcess( "Uppdaterar data för $curUsername",$curUsername,"Uppdatera data")) {
-                        Get-ADUser -LDAPFilter $ldapfilter | Set-ADUser -Replace @{title="$curClearTitle"}
+                    if ( $UpdateUserData ) {
+                        if ( $PSCmdlet.ShouldProcess( "Uppdaterar data för $curUsername",$curUsername,"Uppdatera data")) {
+                            Get-ADUser -LDAPFilter $ldapfilter | Set-ADUser -Replace @{title="$curClearTitle"}
+                        }
                     }
                 }
                 
