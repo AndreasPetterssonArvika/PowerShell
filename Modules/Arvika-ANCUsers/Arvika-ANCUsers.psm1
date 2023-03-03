@@ -1085,8 +1085,7 @@ function Get-ANCItsLearningUsersFromIDList {
         [string][Parameter(Mandatory)]$OldIDListPath,
         [string][Parameter(Mandatory)]$UserIdentifier,
         [string][Parameter(Mandatory)]$OldUserIdentifier,
-        [string][Parameter(Mandatory)]$OutFile,
-        [string][Parameter(Mandatory)]$CurrentUserPrefix
+        [string][Parameter(Mandatory)]$OutFile
     )
 
     # Hämta lista med identifierare
@@ -1102,14 +1101,11 @@ function Get-ANCItsLearningUsersFromIDList {
         $curUser = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
 
         $sAMAccountName = $curUser.sAMAccountName
-        $curPattern = "^$CurrentUserPrefix"
-        if ( $sAMAccountName -match $curPattern ) {
-            $SN = $curUser.Surname
-            $givenName = $curUser.givenName
-            $password = $curUser.sAMAccountName
-            $mail = $curUser.extensionAttribute1
-            "$SN;$givenName;$sAMAccountName;$password;$mail" | Out-File -FilePath $OutFile -Encoding utf8 -Append
-        }
+        $SN = $curUser.Surname
+        $givenName = $curUser.givenName
+        $password = $curUser.sAMAccountName
+        $mail = $curUser.extensionAttribute1
+        "$SN;$givenName;$sAMAccountName;$password;$mail" | Out-File -FilePath $OutFile -Encoding utf8 -Append
         
     }
 
