@@ -1,12 +1,15 @@
 <#
 Skriptet hämtar unika gruppnamn från ett Excelblad
 Gruppnamnen sparas till en textfil
+
+$Infile är en rapport från LanSweeper med namn på användare och grupper som inte ska vara i lokala administratörer
+$UserColumn är kolumnrubriken för kolumnen som ska kollas i rapporten
 #>
 
 [cmdletbinding()]
 param(
-    [Parameter(Mandatory)][string]$Infile,
-    [Parameter(Mandatory)][string]$UserColumn
+    [Parameter(Mandatory,HelpMessage="Excelfil som innehåller en kolumn med AD-namn")][string]$Infile,
+    [Parameter(Mandatory,HelpMessage="Kolumnrubriken för AD-namnen i Excel-bladet")][string]$UserColumn
 )
 
 Import-Module ImportExcel
