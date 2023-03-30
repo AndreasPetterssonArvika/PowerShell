@@ -20,7 +20,7 @@ param(
 $WhatIfPreference=$true
 
 #Requires -modules ImportExcel
-Import-Module ImportExcel
+Import-Module ImportExcel -Verbose:$false
 
 # Filter för uppdaterings ID
 $arvikaCOMUpdateID = 'LS36330'
