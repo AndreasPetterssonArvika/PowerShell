@@ -17,10 +17,10 @@ param(
     [Parameter()][switch]$UpdateUserData
 )
 
-$WhatIfPreference=$true
+#$WhatIfPreference=$true
 
 #Requires -modules ImportExcel
-Import-Module ImportExcel
+Import-Module ImportExcel -Verbose:$false
 
 # Filter för uppdaterings ID
 $arvikaCOMUpdateID = 'LS36330'
@@ -343,8 +343,8 @@ if ( $UpdateType -eq 'Groups' ) {
     foreach ( $sheet in $worksheets ) {
         $curWSName = $sheet.Worksheetname
         if ( $curWSName -match $rektorPattern ) {
+            Write-Output "`nRektor`: $curWSName"
             Write-Verbose 'Rektorsbladet'
-            Write-Host "Rektor`: $curWSName"
         } elseif ( $curWSName -match $budgetPattern ) {
             # Gör inget
             Write-Verbose 'Budgetbladet'
@@ -366,11 +366,11 @@ if ( $UpdateType -eq 'Groups' ) {
                 $curTitleAbbr = $row.P5
                 
                 
-                if ( $curID -match $identifierPattern ) {
+                #if ( $curID -match $identifierPattern ) {
+                if ( ( $curID -match $identifierPattern ) -and ( $curDept -match '^[\w]{1,}' ) ) {
                     # Matchar identifierare och konverterar till ID12
                     $curClearTitle = Get-ClearTitleFromAbbr -TitleAbbr $curTitleAbbr                
                     $curID12 = ConvertTo-IDKey12 -IDKey13 $curID
-                    $hasPermission = $false
                     $inputUsers[$curID12] = @{}
                     $inputUsers[$curID12]['Unit'] = $curWSName
                     $inputUsers[$curID12]['Dept'] = $curDept
