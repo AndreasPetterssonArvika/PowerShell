@@ -118,7 +118,7 @@ function Get-ClearTitleFromAbbr {
         [string][parameter()]$TitleAbbr
     )
 
-    Write-Verbose "Converting $TitleAbbr"
+    Write-Debug "Converting $TitleAbbr"
 
     $titleBSKAbbr='BSK'
     $titleBSK='Barnskötare'
@@ -143,10 +143,10 @@ function Get-ClearTitleFromAbbr {
     } elseif ( $TitleAbbr -match $titleLF3Abbr ) {
         $retTitle = $titleLF3
     } elseif ( $TitleAbbr ) {
-        Write-Host "Ohanterad förkortning $TitleAbbr"
+        Write-Verbose "Ohanterad förkortning $TitleAbbr, sätter Personal"
         $retTitle = 'Personal'
     } else {
-        Write-verbose "Förkortning saknas"
+        Write-Debug "Förkortning saknas, sätter Personal"
         $retTitle = 'Personal'
     }
 
@@ -376,21 +376,21 @@ if ( $UpdateType -eq 'Groups' ) {
                     $inputUsers[$curID12]['Dept'] = $curDept
                     $inputUsers[$curID12]['Title'] = $curClearTitle
                     if ( $curDriveInput -match $drivePermissionString ) {
-                        Write-Verbose "Har behörighet"
+                        Write-Debug "Har behörighet"
                         $inputUsers[$curID12]['XS'] = $true
 
                     } else {
-                        Write-Verbose "Har inte behörighet"
+                        Write-Debug "Har inte behörighet"
                         $inputUsers[$curID12]['XS'] = $false
                     }
-                    #Write-Verbose "Hittade data för medlemmar`: $curWSName, $curDept, $curID12, $curClearTitle,$hasPermission"
+                    
                     $testDept = $inputUsers[$curID12].Dept
                     $testTitle = $inputUsers[$curID12].Title
                     $testPermission = $inputUsers[$curID12].XS
-                    Write-Verbose "Hittade data för personal`: $curID12, $testDept, $testTitle, $testPermission"
+                    Write-Debug "Hittade data för personal`: $curID12, $testDept, $testTitle, $testPermission"
 
                     # Hämta motsvarande användarnamn från Active Directory och lagra.
-                    Write-Verbose "Hämtar användarnamnet för $curID12"
+                    Write-Debug "Hämtar användarnamnet för $curID12"
                     $ldapfilter = "(personNummer=$curID12)"
                     $curUsername = Get-ADUser -LDAPFilter $ldapfilter | Select-Object -ExpandProperty sAMAccountName
                     $inputUsers[$curID12]['Username'] = $curUsername
@@ -405,7 +405,7 @@ if ( $UpdateType -eq 'Groups' ) {
             }
 
             # Här ska gruppmedlemsskapen skötas
-            Write-Verbose 'Uppdatering av gruppmedlemsskap startar'
+            Write-Debug 'Uppdatering av gruppmedlemsskap startar'
 
             # Slå upp befintliga XS-grupper
             # Skapa ett filter baserat på enhet och arvikaCOMUpdateID
@@ -413,14 +413,14 @@ if ( $UpdateType -eq 'Groups' ) {
             $curGroups = Get-ADGroup -LDAPFilter $curGroupFilter -Properties arvikaCOMKlass,arvikaCOMEnhet,arvikaCOMSkolform
             foreach ( $group in $curGroups ) {
                 $curDept = $group.arvikaCOMKlass
-                Write-Verbose "Hanterar gruppen för $curDept"
+                Write-Debug "Hanterar gruppen för $curDept"
 
                 # Hämta nuvarande användare ur gruppen till en dictionary
                 $curUsers = @{}
                 $group | Get-ADGroupMember | ForEach-Object { $curUsername = $_.sAMAccountName; $curUsers[$curUsername]=$curDept }
-                if ($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
+                if ($PSCmdlet.MyInvocation.BoundParameters["Debug"].IsPresent) {
                     foreach ( $key in $curUsers.Keys ) {
-                        Write-Verbose "Användaren $key finns i gruppen för $curDept"
+                        Write-Debug "Användaren $key finns i gruppen för $curDept"
                     }
                 }
 
@@ -428,9 +428,9 @@ if ( $UpdateType -eq 'Groups' ) {
                 $curInputUsers = @{}
                 $inputUsers.GetEnumerator().Where{ ($_.Value.Dept -eq $curDept) -and ( $_.Value.XS -eq $true ) } | ForEach-Object { $curUserName = $_.Value.Username; $curInputUsers[$curUserName]='inputuser' }
 
-                if ($PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
+                if ($PSCmdlet.MyInvocation.BoundParameters["Debug"].IsPresent) {
                     foreach ( $key in $curInputUsers.Keys ) {
-                        Write-Verbose "Användaren $key ska finnas i gruppen för $curDept"
+                        Write-Debug "Användaren $key ska finnas i gruppen för $curDept"
                     }
                 }
 
@@ -439,26 +439,22 @@ if ( $UpdateType -eq 'Groups' ) {
                 $usersToRemove = Compare-HashtableKeys -Data $curUsers -Comp $curInputUsers
 
                 # Lägg till och ta bort användare ur gruppen
-                if ( $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent) {
-                    Write-Verbose "Tillägg i gruppen $group"
-                    foreach ( $key in $usersToAdd.Keys ) {
-                        Write-Verbose "Lägger till användaren $key i gruppen $group"
-                    }
-
-                    Write-Verbose "Borttagningar ur gruppen $group"
-                    foreach ( $key in $usersToRemove.Keys ) {
-                        Write-Verbose "Tar bort användaren $key från gruppen $group"
-                    }
-                }
-
                 
                 if ( $usersToAdd.Count -gt 0 ) {
+                    if ( $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent ) {
+                        Write-Verbose "Användare som läggs till"
+                        $usersToAdd.Keys | Write-Verbose
+                    }
                     if ( $PSCmdlet.ShouldProcess( "Lägger till användare i gruppen $group",$group,"Lägg till användare" ) ) {
                         $usersToAdd.Keys | Get-ADUser | Add-ADPrincipalGroupMembership -MemberOf $group
                     }
                 }
                 
                 if ($usersToRemove.Count -gt 0 ) {
+                    if ( $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent ) {
+                        Write-Verbose "Användare som tas bort"
+                        $usersToRemove.Keys | Write-Verbose
+                    }
                     if ( $PSCmdlet.ShouldProcess( "Tar bort användare ur gruppen $group",$group,"Ta bort användare" ) ) {
                         $usersToRemove.Keys | Get-ADUser | Remove-ADPrincipalGroupMembership -MemberOf $group -Confirm:$false
                     }
