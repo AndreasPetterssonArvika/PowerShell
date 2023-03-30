@@ -366,7 +366,7 @@ if ( $UpdateType -eq 'Groups' ) {
                 $curTitleAbbr = $row.P5
                 
                 
-                #if ( $curID -match $identifierPattern ) {
+                # Bearbeta bara om det både finns ett ID och en uttycklig avdelning
                 if ( ( $curID -match $identifierPattern ) -and ( $curDept -match '^[\w]{1,}' ) ) {
                     # Matchar identifierare och konverterar till ID12
                     $curClearTitle = Get-ClearTitleFromAbbr -TitleAbbr $curTitleAbbr                
