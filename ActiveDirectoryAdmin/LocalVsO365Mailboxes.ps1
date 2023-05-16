@@ -29,4 +29,6 @@ $numO365Mailboxes = Get-ADUser -LDAPFilter $ldapHasO365Mailbox -Properties $attr
 # Räkna låsta användare med O365-mailbox
 $numLockedO365Mailboxes = Get-ADUser -LDAPFilter $ldapHasO365Mailbox -Properties $attributeList | Where-Object { $_.Enabled -like 'False' } | Measure-Object | Select-Object -ExpandProperty Count
 
-Write-Host "`n`nResultat`nTotalt antal mailboxar: $numTotalMailboxes`nAntal lokala mailboxar: $numLocalMailboxes`n- varav låsta: $numLockedLocalMailboxes`nOffice 365-mailboxar: $numO365Mailboxes`n- varav låsta: $numLockedO365Mailboxes"
+$resultstring = "`n`nResultat`nTotalt antal mailboxar: $numTotalMailboxes`nAntal lokala mailboxar: $numLocalMailboxes`n- varav låsta: $numLockedLocalMailboxes`nOffice 365-mailboxar: $numO365Mailboxes`n- varav låsta: $numLockedO365Mailboxes"
+
+$resultstring | Out-File -FilePath .\LocalVsO365Mailboxes.txt
