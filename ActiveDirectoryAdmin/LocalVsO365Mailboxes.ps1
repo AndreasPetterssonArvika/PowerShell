@@ -7,6 +7,15 @@
 # Skriptet räknar också de användare som är låsta, eftersom de i de flesta fall är funktionskonton som inte loggar in utan
 # används av andra användare.
 
+[cmdletbinding()]
+param(
+    [switch]$ListMailboxes
+)
+
+$now = Get-Date -Format "yyMMdd_HHmm"
+
+$outfile = "LocalVsO365Mailboxes_$now.txt"
+
 $ldapHasMailbox = '(msExchMailboxGuid=*)'
 $ldapHasLocalMailbox = '(&(msExchMailboxGuid=*)(!(msexchRemoteRecipientType=4)))'
 $ldapHasO365Mailbox = '(&(msExchMailboxGuid=*)(msexchRemoteRecipientType=4))'
@@ -15,20 +24,44 @@ $ldapHasO365Mailbox = '(&(msExchMailboxGuid=*)(msexchRemoteRecipientType=4))'
 $attributeList = @('mail','msExchMailboxGuid','msexchRemoteRecipientType','Enabled')
 
 # Räkna användare med mailbox
-$numTotalMailboxes = Get-ADUser -LDAPFilter $ldapHasMailbox -Properties $attributeList | Measure-Object | Select-Object -ExpandProperty Count
+$usersWithMailbox = Get-ADUser -LDAPFilter $ldapHasMailbox -Properties $attributeList
+$numTotalMailboxes = $usersWithMailbox | Measure-Object | Select-Object -ExpandProperty Count
 
 # Räkna användare med lokal mailbox
-$numLocalMailboxes = Get-ADUser -LDAPFilter $ldapHasLocalMailbox -Properties $attributeList | Measure-Object | Select-Object -ExpandProperty Count
+$usersWithLocalMailbox = Get-ADUser -LDAPFilter $ldapHasLocalMailbox -Properties $attributeList
+$numLocalMailboxes = $usersWithLocalMailbox | Measure-Object | Select-Object -ExpandProperty Count
 
 # Räkna låsta användare med lokal mailbox
-$numLockedLocalMailboxes = Get-ADUser -LDAPFilter $ldapHasLocalMailbox -Properties $attributeList | Where-Object { $_.Enabled -like 'False' } | Measure-Object | Select-Object -ExpandProperty Count
+$lockedUsersWithLocalMailbox = Get-ADUser -LDAPFilter $ldapHasLocalMailbox -Properties $attributeList | Where-Object { $_.Enabled -like 'False' }
+$numLockedLocalMailboxes = $lockedUsersWithLocalMailbox | Measure-Object | Select-Object -ExpandProperty Count
 
 # Räkna användare med O365-mailbox
-$numO365Mailboxes = Get-ADUser -LDAPFilter $ldapHasO365Mailbox -Properties $attributeList | Measure-Object | Select-Object -ExpandProperty Count
+$usersWithO365Mailbox = Get-ADUser -LDAPFilter $ldapHasO365Mailbox -Properties $attributeList
+$numO365Mailboxes = $usersWithO365Mailbox | Measure-Object | Select-Object -ExpandProperty Count
 
 # Räkna låsta användare med O365-mailbox
-$numLockedO365Mailboxes = Get-ADUser -LDAPFilter $ldapHasO365Mailbox -Properties $attributeList | Where-Object { $_.Enabled -like 'False' } | Measure-Object | Select-Object -ExpandProperty Count
+$lockedUsersWithO365Mailbox = Get-ADUser -LDAPFilter $ldapHasO365Mailbox -Properties $attributeList | Where-Object { $_.Enabled -like 'False' }
+$numLockedO365Mailboxes = $lockedUsersWithO365Mailbox | Measure-Object | Select-Object -ExpandProperty Count
 
-$resultstring = "`n`nResultat`nTotalt antal mailboxar: $numTotalMailboxes`nAntal lokala mailboxar: $numLocalMailboxes`n- varav låsta: $numLockedLocalMailboxes`nOffice 365-mailboxar: $numO365Mailboxes`n- varav låsta: $numLockedO365Mailboxes"
+# Skriv sammanställning till fil
+$resultstring = "Resultat`nTotalt antal mailboxar: $numTotalMailboxes`nAntal lokala mailboxar: $numLocalMailboxes`n- varav låsta: $numLockedLocalMailboxes`nOffice 365-mailboxar: $numO365Mailboxes`n- varav låsta: $numLockedO365Mailboxes"
+$resultstring | Out-File -FilePath $outfile -Encoding utf8
 
-$resultstring | Out-File -FilePath .\LocalVsO365Mailboxes.txt
+if ( $ListMailboxes ) {
+    # Mailboxarna ska listas
+    "`n`n=== Användare med mailbox ===" | Out-File -FilePath $outfile -Encoding utf8  -Append
+    $usersWithMailbox | Select-Object -Property Name,mail | Out-File -FilePath $outfile -Encoding utf8  -Append
+
+    "`n`n=== Användare med lokal mailbox ===" | Out-File -FilePath $outfile -Encoding utf8  -Append
+    $usersWithLocalMailbox | Select-Object -Property Name,mail | Out-File -FilePath $outfile -Encoding utf8  -Append
+
+    "`n`n=== Låsta användare med lokal mailbox ===" | Out-File -FilePath $outfile -Encoding utf8  -Append
+    $lockedUsersWithLocalMailbox | Select-Object -Property Name,mail | Out-File -FilePath $outfile -Encoding utf8  -Append
+
+    "`n`n=== Användare med Office 365-mailbox ===" | Out-File -FilePath $outfile -Encoding utf8  -Append
+    $usersWithO365Mailbox | Select-Object -Property Name,mail | Out-File -FilePath $outfile -Encoding utf8  -Append
+
+    "`n`n=== Låsta användare med Office 365-mailbox ===" | Out-File -FilePath $outfile -Encoding utf8  -Append
+    $lockedUsersWithO365Mailbox | Select-Object -Property Name,mail | Out-File -FilePath $outfile -Encoding utf8  -Append
+
+}
