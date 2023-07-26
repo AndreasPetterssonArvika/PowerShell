@@ -22,3 +22,13 @@ Write-Host "Förnamn: $givenName"
 Write-Host "Efternamn: $SN"
 Write-Host "Befattning: $title"
 Write-Host "Hela namnet är $givenName $SN, $title"
+
+# Vill man undersöka om parametrarna har ett värde kan man göra det
+# Den nedanstående konstruktionen gäller för textsträngar, är det något annat räcker det med ( $null -eq $variabel )
+# Orsaken är att tomma textsträngar är ett värde
+# Ordningen i den första jämförelsen är också viktig på grund av hur Powershell hanterar variabler.
+# Vänder man på uttrycket ( $variabel -eq $null ) utvärderas det till sant om $variabel inte finns
+# Praxis är därför att göra jämförelsen som nedan.
+if ( ( $null -eq $givenName ) -or ( [string]::IsNullOrEmpty( $givenName ) ) ) {
+    Write-host "Parametern givenName saknade värde i funktionsanropet"
+}
