@@ -19,7 +19,7 @@ function Update-ANCVUXElever {
     [string][Parameter(Mandatory)]$MailDomain,
     [string][Parameter(Mandatory)]$UserScript,
     [string][Parameter(Mandatory)]$UserFolderPath,
-    [string][Parameter(Mandatory)]$ShareServer,
+    [string][Parameter(Mandatory)]$FileServer,
     [string][Parameter(Mandatory)]$MailAttribute,
     [string][Parameter(Mandatory)]$StudentOU,
     [string][Parameter(Mandatory)]$OldStudentOU,
@@ -126,7 +126,7 @@ function Update-ANCVUXElever {
     #<#
     # Skapa nya konton med mapp
     Write-Verbose "Skapar nya konton"
-    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $StudentOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer -WhatIf:$WhatIfPreference
+    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $StudentOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $FileServer -WhatIf:$WhatIfPreference
     #>
 
     #<#
@@ -612,7 +612,7 @@ function New-ANCStudentUsers {
         [string][parameter(Mandatory)]$MailDomain,
         [string][Parameter(Mandatory)]$UserScript,
         [string][Parameter(Mandatory)]$UserFolderPath,
-        [string][Parameter(Mandatory)]$ShareServer,
+        [string][Parameter(Mandatory)]$FileServer,
         [string][Parameter(Mandatory)]$MailAttribute
     )
 
@@ -622,7 +622,7 @@ function New-ANCStudentUsers {
             $tKey = $row.IDKey
             Write-Debug "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
             try {
-                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $ShareServer -WhatIf:$WhatIfPreference
+                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $FileServer -WhatIf:$WhatIfPreference
             } catch [System.Management.Automation.RuntimeException] {
                 # Fel när användaren skulle skapas
                 Write-Debug "New-ANCStudentUsers`: Fel när användaren skulle skapas"
@@ -645,7 +645,7 @@ function New-ANCStudentUser {
         [string][Parameter(Mandatory)]$StudentOU,
         [string][Parameter(Mandatory)]$UserScript,
         [string][Parameter(Mandatory)]$UserFolderPath,
-        [string][Parameter(Mandatory)]$ShareServer,
+        [string][Parameter(Mandatory)]$FileServer,
         [string][Parameter(Mandatory)]$MailAttribute
     )
 
@@ -686,7 +686,7 @@ function New-ANCStudentUser {
 
     # Skapa delad mapp för elev, mappas via inloggningsskript
     if ( $PSCmdlet.ShouldProcess("Skapar delad mapp för $username",$username,'Skapar delad mapp') ) {
-        New-ANCStudentFolder -sAMAccountName $username -UserFolderPath $UserFolderPath -ShareServer $ShareServer
+        New-ANCStudentFolder -sAMAccountName $username -UserFolderPath $UserFolderPath -ShareServer $FileServer
     }
     
 
@@ -695,27 +695,83 @@ function New-ANCStudentUser {
 function New-ANCStudentFolder {
     [cmdletbinding()]
     param (
-        [string][Parameter(Mandatory)]$sAMAccountName,
-        [string][Parameter(Mandatory)]$UserFolderPath,
-        [string][Parameter(Mandatory)]$ShareServer
+        [Parameter(Mandatory)][string]$sAMAccountName,
+        [Parameter(Mandatory)][string]$UserFolderPath,
+        [Parameter(Mandatory)][string]$FileServer
     )
 
-    # Skapa mappen
-    New-Item -Path $UserFolderPath -Name $sAMAccountName -ItemType Directory | Out-Null
+    # Skapa "gammalt" namn för användaren
+    # Kanske inte behövs. Trodde det ev var nödvändigt för ACL-regelns
+    $NetBIOSDomain = $env:USERDOMAIN
+    $fullUserName = "$NetBIOSDomain\$sAMAccountName"
+    
+    # Skapa den lokala sökvägen till användarmappen
     $newUserFolder = "$UserFolderPath`\$sAMAccountName"
     Write-Verbose "Nya användarmappen: $newUserFolder"
 
-    # Sätt behörighet
-    $acl = Get-Acl -Path $newUserFolder
-    $UserPermission = "$env:USERDOMAIN\$sAMAccountName","FullControl", "ContainerInherit,ObjectInherit","None","Allow"
-    $UseraccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $UserPermission
-    $acl.SetAccessRule($UseraccessRule)
-    Set-Acl -Path $newUserFolder -AclObject $acl
-
-    # Dela mappen
+    # Skapa sharenamnet
     $shareName = $sAMAccountName + '$'
     Write-Verbose "Nya sharenamnet $shareName"
-    New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess "$env:USERDOMAIN\$sAMAccountName"
+
+    # Undersök om $FileServer är samma som datorn skriptet körs på
+    # Annars ska mappen skapas remote med Invoke-Command
+
+    if ( $FileServer -eq $env:COMPUTERNAME ) {
+        # $FileServer är samma som datorn skriptet körs på.
+        # Skapa mappen lokalt på datorn
+        Write-Verbose "Mappen på lokala servern"
+
+        # Skapa mappen
+        New-Item -Path $newUserFolder -ItemType Directory | Out-Null
+
+        # Sätt behörighet
+        $acl = Get-Acl -Path $newUserFolder
+        $aclRule = New-Object System.Security.AccessControl.FileSystemAccessRule($fullUserName,"FullControl","ContainerInherit,ObjectInherit","None","Allow")
+        $acl.SetAccessRule($aclRule)
+        Set-Acl -Path $newUserFolder -AclObject $acl
+
+        # Dela mappen
+        New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess $fullUserName
+
+    } else {
+        # Filservern är inte den aktuella datorn
+        # Skapa mappen på filservern
+        Write-Verbose "Mappen på annan filserver"
+
+        # Skapa mappen på filservern
+        Invoke-Command -ComputerName $FileServer -ScriptBlock {
+            param (
+                $newUserFolder
+            )
+            New-Item -Path $newUserFolder -ItemType Directory | Out-Null
+        } -ArgumentList $newUserFolder
+
+        # Sätt behörighet
+        Invoke-Command -ComputerName $FileServer -ScriptBlock {
+            param (
+                $newUserFolder,
+                $fullUserName
+            )
+            $acl = Get-Acl -Path $newUserFolder
+            $aclRule = New-Object System.Security.AccessControl.FileSystemAccessRule($fullUserName,"FullControl","ContainerInherit,ObjectInherit","None","Allow")
+            $acl.AddAccessRule($aclRule)
+            Set-Acl -Path $newUserFolder -AclObject $acl
+        } -ArgumentList $newUserFolder,$fullUserName
+        
+
+        # Dela mappen
+        Invoke-Command -ComputerName $FileServer -ScriptBlock {
+            param (
+                $shareName,
+                $newUserFolder,
+                $fullUserName
+            )
+
+            New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess $fullUserName
+
+        } -ArgumentList $shareName,$newUserFolder,$fullUserName
+        
+    }
 
 }
 
