@@ -53,7 +53,8 @@ function Update-ANCVUXElever {
     Write-Debug "Current users LDAP-filter`: $ldapfilter"
     Write-Debug "Current users searchBase`: $StudentOU"
     [hashtable]$activeUserDict = Get-ANCUserDict -SearchBase $StudentOU -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
-    #$activeUserDict.Keys
+    $numActiveUsers = $activeUserDict.Count
+    Write-Debug "Current active users: $numActiveUsers"
     #>
 
     #<#
@@ -63,6 +64,8 @@ function Update-ANCVUXElever {
     Write-Debug "Retired users LDAP-filter`: $ldapfilter"
     Write-Debug "Retired users searchBase`: $OldStudentOU"
     [hashtable]$retiredDict = Get-ANCUserDict -SearchBase $OldStudentOU -Ldapfilter $ldapfilter -UserIdentifier $UserIdentifier
+    $numInactiveUsers = $activeUserDict.Count
+    Write-Debug "Current inactive users: $numInactiveUsers"
     #>
 
     #<#
@@ -126,7 +129,7 @@ function Update-ANCVUXElever {
     #<#
     # Skapa nya konton med mapp
     Write-Verbose "Skapar nya konton"
-    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $StudentOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $FileServer -WhatIf:$WhatIfPreference
+    New-ANCStudentUsers -UniqueStudents $uniqueStudents -NewUserDict $newUserCandidates -NewUserOU $StudentOU -UserIdentifier $UserIdentifier -UserPrefix $UserPrefix -MailDomain $MailDomain -MailAttribute $MailAttribute -UserScript $UserScript -UserFolderPath $UserFolderPath -FileServer $FileServer -WhatIf:$WhatIfPreference
     #>
 
     #<#
@@ -622,7 +625,7 @@ function New-ANCStudentUsers {
             $tKey = $row.IDKey
             Write-Debug "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
             try {
-                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -ShareServer $FileServer -WhatIf:$WhatIfPreference
+                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -FileServer $FileServer -WhatIf:$WhatIfPreference
             } catch [System.Management.Automation.RuntimeException] {
                 # Fel när användaren skulle skapas
                 Write-Debug "New-ANCStudentUsers`: Fel när användaren skulle skapas"
@@ -686,7 +689,7 @@ function New-ANCStudentUser {
 
     # Skapa delad mapp för elev, mappas via inloggningsskript
     if ( $PSCmdlet.ShouldProcess("Skapar delad mapp för $username",$username,'Skapar delad mapp') ) {
-        New-ANCStudentFolder -sAMAccountName $username -UserFolderPath $UserFolderPath -ShareServer $FileServer
+        New-ANCStudentFolder -sAMAccountName $username -UserFolderPath $UserFolderPath -FileServer $FileServer
     }
     
 
