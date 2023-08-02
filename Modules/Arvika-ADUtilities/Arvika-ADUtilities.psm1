@@ -4,36 +4,56 @@
 # - $copyFromUser, the user to be copied from
 # - $userToCopyTo, the user to be copied to, sAMAccountName
 # - $userAttributes, the attributes to be copied
-function Copy-ADUserAttributes {
+function Copy-ADAttributesFromUser {
+    [cmdletbinding(SupportsShouldProcess)]
     param (
-        [Parameter(Mandatory,ValueFromPipeline)] $copyToUser,
-        $copyFromUser,
-        $userAttributes
+        [Parameter(Mandatory)][string]$copyFromUser,
+        [Parameter(Mandatory,ValueFromPipeline)][Microsoft.ActiveDirectory.Management.ADAccount]$copyToUser,
+        [Parameter()][string[]]$userAttributes = @('description','title','department','company','manager','streetAddress','l','telephoneNumber','physicalDeliveryOfficeName')
     )
 
-    # Låt stå tills skriptet bättre testat
-    BREAK
-    # Låt stå tills skriptet bättre testat
+    begin {
+        Write-Verbose "Getting attributes from user $userToCopyFrom"
+        (Get-ADUser -Identity $copyFromUser -Properties $userAttributes).PSObject.Properties | foreach { $copiedAttribs=@{} } {$copiedAttribs.add($_.Name, $_.value) }
 
-    $userToCopyFrom = '<sAMAccountName>'
+        $attribsToSet = @{}
 
-    $userToCopyTo = '<sAMAccountName>'
-
-    $attributes = @('description','title','department','company','manager','streetAddress','l','telephoneNumber','physicalDeliveryOfficeName')
-
-    (Get-ADUser $userToCopyFrom -Properties $attributes).PSObject.Properties | foreach { $copiedAttribs=@{} } {$copiedAttribs.add($_.Name, $_.value) }
-
-    $attribsToSet = @{}
-
-    foreach ( $attribute in $attributes ) {    # foreach triggers warning as an alias that should be changed. This instance of foreach is NOT an alias, rather MS has overloaded the meaning of foreach.
-        if ( $copiedAttribs.$attribute) {
-            $attribsToSet.Add($attribute,$copiedAttribs.$attribute)
+        foreach ( $attribute in $userAttributes ) {    # foreach triggers warning as an alias that should be changed. This instance of foreach is NOT an alias, rather MS has overloaded the meaning of foreach.
+            if ( $copiedAttribs.$attribute) {
+                $attribsToSet.Add($attribute,$copiedAttribs.$attribute)
+            }
         }
+
+        $jsonString = $attribsToSet | ConvertTo-Json
+        Write-debug $jsonString
     }
 
-    Set-ADUser $userToCopyTo -Replace $attribsToSet
+    process {
+            Write-Verbose "Setting attributes for users"
+            Set-ADUser -Identity $copyToUser -Replace $attribsToSet -WhatIf:$WhatIfPreference
+    }
+
+    end {}
 
 }
 
+function Copy-ADGroupsFromUser {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$copyFromUser,
+        [Parameter(Mandatory,ValueFromPipeline)][Microsoft.ActiveDirectory.Management.ADAccount]$copyToUser
+    )
 
+    begin {
+        $groups = Get-ADUser -Identity $copyFromUser | Get-ADPrincipalGroupMembership | Out-GridView -PassThru
+    }
 
+    process {
+        Get-ADUser -Identity $copyToUser | Add-ADPrincipalGroupMembership -MemberOf $groups
+    }
+
+    end {}
+}
+
+Export-ModuleMember Copy-ADAttributesFromUser
+Export-ModuleMember Copy-ADGroupsFromUser
