@@ -741,6 +741,7 @@ function New-ANCStudentFolder {
         # Skapa mappen på filservern
         Write-Verbose "Mappen på annan filserver"
 
+        <#
         # Skapa mappen på filservern
         Invoke-Command -ComputerName $FileServer -ScriptBlock {
             param (
@@ -773,6 +774,29 @@ function New-ANCStudentFolder {
             New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess $fullUserName
 
         } -ArgumentList $shareName,$newUserFolder,$fullUserName
+        #>
+
+        # Skapa mapp, sätt behörighet och dela ut
+        Invoke-Command -ComputerName $FileServer -ScriptBlock {
+            param (
+                $newUserFolder,
+                $fullUserName,
+                $shareName
+            )
+
+            # Skapa mappen
+            New-Item -Path $newUserFolder -ItemType Directory | Out-Null
+
+            # Sätt behörighet
+            $acl = Get-Acl -Path $newUserFolder
+            $aclRule = New-Object System.Security.AccessControl.FileSystemAccessRule($fullUserName,"FullControl","ContainerInherit,ObjectInherit","None","Allow")
+            $acl.AddAccessRule($aclRule)
+            Set-Acl -Path $newUserFolder -AclObject $acl
+
+            # Dela mappen
+            New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess $fullUserName
+
+        } -ArgumentList $newUserFolder,$fullUserName,$shareName
         
     }
 
