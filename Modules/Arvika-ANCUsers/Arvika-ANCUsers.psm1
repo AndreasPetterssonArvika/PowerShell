@@ -1191,6 +1191,40 @@ function Get-ANCAllUsers {
 }
 
 <#
+
+Funktionen återställer lösenordet för personerna på listan baserat på deras användarnamn
+
+#>
+function Reset-ANCStudentPasswords {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$Userlist
+    )
+
+    # Hämta listan
+    $users = Get-Content -Path $Userlist | ConvertFrom-Csv -Delimiter ';' | Select-Object -ExpandProperty mail
+
+    foreach ( $user in $users ) {
+        Write-Debug "Användare: $user"
+        # Slå upp mot extensionAttribute1 eftersom indata har epostadressen
+        # för Google och den är lagrad i just det attributet
+        $ldapfilter = "(extensionAttribute1=$user)"
+        Get-ADUser -LDAPFilter $ldapfilter | Reset-ANCStudentPassword
+    }
+}
+
+function Reset-ANCStudentPassword {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)]$ANCStudent
+    )
+
+    $newPass = $ANCStudent.sAMAccountName | ConvertTo-SecureString -AsPlainText -Force
+    Set-ADAccountPassword -Identity $ANCStudent -NewPassword $newPass
+
+}
+
+<#
 Genererar en lista som underlag för användaruppgifterna
 #>
 <#
@@ -1234,4 +1268,5 @@ Export-ModuleMember Get-ANCGSEUsers
 Export-ModuleMember Get-ANCAllUsers
 Export-ModuleMember Get-ANCItsLearningUsersFromIDList
 Export-ModuleMember New-ANCStudentFolder
+Export-ModuleMember Reset-ANCStudentPasswords
 #>
