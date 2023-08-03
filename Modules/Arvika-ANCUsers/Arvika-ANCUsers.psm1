@@ -1139,21 +1139,22 @@ function Get-ANCItsLearningUsersFromIDList {
     # Hämta lista med identifierare
     $OldIDList = Import-Csv -Path $OldIDListPath -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
 
+    # Sätt rubriker för exportfilen
     "Efternamn;Förnamn;Användarnamn;Lösenord;E-postadress" | Out-File -FilePath $OutFile -Encoding utf8
 
-    $attributes = @('SN','givenName','sAMAccountName','extensionAttribute1')
+    # Attributen som behövs. extensionAttribute1 är mailadressen för arvika.com
+    $attributes = @('SN','givenName','extensionAttribute1')
 
     foreach ( $OldID in $OldIDList ) {
         $UID = ConvertTo-IDKey12 -IDKey11 $OldID
         $ldapfilter = "($UserIdentifier=$UID)"
         $curUser = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
 
-        $sAMAccountName = $curUser.sAMAccountName
         $SN = $curUser.Surname
         $givenName = $curUser.givenName
         $password = $curUser.sAMAccountName
         $mail = $curUser.extensionAttribute1
-        "$SN;$givenName;$sAMAccountName;$password;$mail" | Out-File -FilePath $OutFile -Encoding utf8 -Append
+        "$SN;$givenName;$mail;$password;$mail" | Out-File -FilePath $OutFile -Encoding utf8 -Append
         
     }
 
