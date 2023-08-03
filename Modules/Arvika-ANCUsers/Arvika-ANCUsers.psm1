@@ -1221,6 +1221,7 @@ function Reset-ANCStudentPassword {
 
     $newPass = $ANCStudent.sAMAccountName | ConvertTo-SecureString -AsPlainText -Force
     Set-ADAccountPassword -Identity $ANCStudent -NewPassword $newPass
+    Set-ADUser -Identity $ANCStudent -ChangePasswordAtLogon $true
 
 }
 
