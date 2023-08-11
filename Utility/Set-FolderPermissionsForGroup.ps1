@@ -37,7 +37,6 @@ function Set-FolderPermissions {
         foreach ($folder in $FolderPath) {
             if (Test-Path $folder -PathType Container) {
 
-                <#
                 $acl = Get-Acl $folder
 
                 # Remove existing permissions for the group
@@ -60,7 +59,6 @@ function Set-FolderPermissions {
                 $acl.AddAccessRule($accessRule)
 
                 Set-Acl $folder $acl
-                #>
 
                 Write-Verbose "Permissions updated for $folder"
 
@@ -75,4 +73,4 @@ function Set-FolderPermissions {
     }
 }
 
-Get-ChildItem -Path $basePath -Directory | Select-Object -ExpandProperty FullName | Set-FolderPermissions -GroupName $Groupname
+Get-ChildItem -Path $basePath -Directory | Select-Object -ExpandProperty FullName | Out-GridView -PassThru | Set-FolderPermissions -GroupName $Groupname -WritePermission:$WritePermission
