@@ -66,7 +66,7 @@ foreach ($subFolder in $subFolders) {
         
         # Skapa en dold share för mappen
         $shareName = $user.SamAccountName + "$"
-        New-SmbShare -Name $shareName -Path $subFolder.FullName -CachingMode None -EncryptData $false
+        New-SmbShare -Name $shareName -Path $subFolder.FullName -CachingMode None -EncryptData $false -FullAccess Everyone
         
         Write-Verbose "Behörigheter och delning skapade för användare $($user.SamAccountName) i mappen $($subFolder.FullName)"
     } else {
