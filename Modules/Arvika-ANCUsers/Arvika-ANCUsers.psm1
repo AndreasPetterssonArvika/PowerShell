@@ -1227,6 +1227,31 @@ function Get-ANCAllUsers {
     Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
 }
 
+function Get-ANCUserinfoFromOU {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$UserOU,
+        [Parameter(Mandatory)][string[]]$ListAttributes,
+        [Parameter()][string]$Outfile
+    )
+
+    # Kontrollera om sökvägen för utdatafil finns
+    # Om inte, konstruera den.
+    if ( $null -match $Outfile ) {
+
+        $basePath = "$env:USERPROFILE\Documents"
+
+        $now = Get-Date -Format 'yyMMdd_HHmm'
+
+        $Outfile = "$basePath\ANCUserInfo_$now.csv"
+        Write-Verbose " Skriver data till $Outfile"
+
+    }
+
+    Get-ADUser -Filter * -SearchBase $UserOU -Properties $ListAttributes | Select-Object -Property $ListAttributes | ConvertTo-Csv -Delimiter ';' | Out-File -FilePath $Outfile -Encoding utf8
+
+}
+
 <#
 
 Funktionen återställer lösenordet för personerna på listan baserat på deras användarnamn
@@ -1305,6 +1330,7 @@ Export-ModuleMember Get-ANCUsersFromIDList
 Export-ModuleMember Get-ANCGSEUsers
 Export-ModuleMember Get-ANCAllUsers
 Export-ModuleMember Get-ANCItsLearningUsersFromIDList
+Export-ModuleMember Get-ANCUserinfoFromOU
 Export-ModuleMember New-ANCStudentFolder
 Export-ModuleMember Reset-ANCStudentPasswords
 #>
