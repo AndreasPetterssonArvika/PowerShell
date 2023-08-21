@@ -734,7 +734,7 @@ function New-ANCStudentFolder {
         Set-Acl -Path $newUserFolder -AclObject $acl
 
         # Dela mappen
-        New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess $fullUserName
+        New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess $fullUserName | Out-Null
 
     } else {
         # Filservern är inte den aktuella datorn
@@ -759,7 +759,7 @@ function New-ANCStudentFolder {
             Set-Acl -Path $newUserFolder -AclObject $acl
 
             # Dela mappen
-            New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess $fullUserName
+            New-SmbShare -Name $sharename -Path $newUserFolder -FullAccess $fullUserName | Out-Null
 
         } -ArgumentList $newUserFolder,$fullUserName,$shareName
         
