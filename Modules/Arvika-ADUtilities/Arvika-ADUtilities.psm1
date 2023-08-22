@@ -64,8 +64,40 @@ function Copy-ADGroupMembersToGroup {
     )
 
     if ( $SelectFromGridView) {
-        Get-ADGroupMember -Identity $CopyFromGroup | Get-ADUser -Properties Name,mail,distinguishedName | Out-GridView -PassThru | Add-ADPrincipalGroupMembership -MemberOf $CopyToGroup
+        <#
+
+        Flaggan SelectFromGridView är angiven
+        Eftersom jag vill visa upp vissa bestämda attribut i min GridView behövs en omväg över PSCustomObjects
+
+        #>
+
+        # Slå upp användare
+        $groupMembers = Get-ADGroupMember -Identity $CopyFromGroup | Get-ADUser -Properties mail,description | Select-Object -Property sAMAccountName,Name,mail,description
+
+        # Skapa PSCustomObjects baserat på de användare som hittats och lagra dem i en array
+        $customUserObjects = @()
+        
+        foreach ( $user in $groupMembers ) {
+            # Skapa objektet
+            $customUserObject = New-Object PSObject -Property @{
+                SamAccountName = $user.SamAccountName
+                Name = $user.Name
+                Mail = $user.Mail
+                Description = $user.description
+            }
+
+            # Lägg till i array
+            $customUserObjects += $customUserObject
+        }
+
+        # Använd en GridView för att lägga valda användare i $selectedUsers
+        $selectedUsers = $customUserObjects | Out-GridView -PassThru
+
+        # Lägg till alla användare i $selectedUsers i målgruppen
+        $selectedUsers | ForEach-Object { Add-ADGroupMember -Identity $CopyToGroup -Members $_.SamAccountName }
+
     } else {
+        # Alla användare ska läggas över, hämta alla användare och lägg dem i målgruppen
         Get-ADGroupMember -Identity $CopyFromGroup | Add-ADPrincipalGroupMembership -MemberOf $CopyToGroup
     }
 
