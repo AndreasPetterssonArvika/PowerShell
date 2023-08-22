@@ -55,5 +55,22 @@ function Copy-ADGroupsFromUser {
     end {}
 }
 
+function Copy-ADGroupMembersToGroup {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$CopyFromGroup,
+        [Parameter(Mandatory)][string]$CopyToGroup,
+        [Parameter()][switch]$SelectFromGridView
+    )
+
+    if ( $SelectFromGridView) {
+        Get-ADGroupMember -Identity $CopyFromGroup | Get-ADUser -Properties Name,mail,distinguishedName | Out-GridView -PassThru | Add-ADPrincipalGroupMembership -MemberOf $CopyToGroup
+    } else {
+        Get-ADGroupMember -Identity $CopyFromGroup | Add-ADPrincipalGroupMembership -MemberOf $CopyToGroup
+    }
+
+}
+
 Export-ModuleMember Copy-ADAttributesFromUser
 Export-ModuleMember Copy-ADGroupsFromUser
+Export-ModuleMember Copy-ADGroupMembersToGroup
