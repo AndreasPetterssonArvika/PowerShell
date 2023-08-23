@@ -103,6 +103,33 @@ function Copy-ADGroupMembersToGroup {
 
 }
 
+function New-ADUserFolderMappingScript {
+    [cmdletbinding()]
+    param(
+        [Parameter(Mandatory)][string]$sAMAccountName,
+        [Parameter()][string]$ScriptFolder
+    )
+
+    $user = Get-ADUser -Identity $sAMAccountName -Properties displayname,homeDrive,homeDirectory | Select-Object -Property displayName,sAMAccountName,homeDrive,homeDirectory
+
+    $userClearName = $user.displayName
+    $username = $user.sAMAccountName
+    $userDrive = $user.homeDrive
+    $userDirectory = $user.homeDirectory
+
+    $outfile = "$scriptFolder\$username.bat"
+
+    Write-Debug $outfile
+
+    $scriptText = "REM Mappningsskript för $userClearName`n`nnet use $userDrive $userDirectory /PERSISTENT:YES"
+
+    Write-Debug $scriptText
+
+    $scriptText | Out-File -FilePath $outfile -Encoding utf8
+
+}
+
 Export-ModuleMember Copy-ADAttributesFromUser
 Export-ModuleMember Copy-ADGroupsFromUser
 Export-ModuleMember Copy-ADGroupMembersToGroup
+Export-ModuleMember New-ADUserFolderMappingScript
