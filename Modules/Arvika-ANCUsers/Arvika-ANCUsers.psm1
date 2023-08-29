@@ -669,7 +669,7 @@ function New-ANCStudentUser {
 
     try {
         if ( $PSCmdlet.ShouldProcess("Skapar användaren $username",$username,'Skapa användare') ) {
-            New-ADUser -SamAccountName $username -Name $displayName -DisplayName $displayName -GivenName $givenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
+            New-ADUser -SamAccountName $username -Name $username -DisplayName $displayName -GivenName $givenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
         }
         
     } catch [System.ServiceModel.FaultException] {
