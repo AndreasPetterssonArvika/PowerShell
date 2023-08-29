@@ -129,7 +129,59 @@ function New-ADUserFolderMappingScript {
 
 }
 
+function Find-ADUsername {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$UserName,
+        [Parameter()][switch]$ShowMatches
+    )
+
+    $ldapfilter = "(|(name=$UserName)(sAMAccountName=$UserName)(cn=$UserName)(mailNickname=$UserName)(proxyAddresses=*$UserName*))"
+    Write-Verbose "`nSearching for username $UserName"
+    Write-Debug "LDAP filter for search: $ldapfilter"
+    $matches = Get-ADUser -LDAPFilter $ldapfilter -Properties cn,mailNickname,proxyAddresses
+    
+    $numMatches = $matches | Measure-Object | Select-Object -ExpandProperty count
+
+    if ( $ShowMatches ) {
+        if ( $numMatches -gt 0 ) {
+            Write-Output = "Found $numMatches matching users"
+            foreach ( $user in $matches ) {
+                $dn = $user.distinguishedName
+                Write-Output "`nMatching user: $dn"
+                if ( $user.Name -match $UserName ) {
+                    $outString = $user.Name
+                    Write-Output "Found Name: $outString"
+                }
+                if ( $user.sAMAccountName -match $UserName ) {
+                    $outString = $user.sAMAccountName
+                    Write-Output "Found sAMAccountName: $outString"
+                }
+                if ( $user.cn -match $UserName ) {
+                    $outString = $user.cn
+                    Write-Output "Found cn: $outString"
+                }
+                if ( $user.mailNickname -match $UserName ) {
+                    $outString = $user.mailNickname
+                    Write-Output "Found mailNickname: $outString"
+                }
+                if ( $user.proxyAddresses -match $UserName ) {
+                    $outString = $user.proxyAddresses
+                    Write-Output "Found proxyAddresses: $outString"
+                }
+            }
+
+        } else {
+            Write-Output "No matches found"
+        }
+    }
+
+    return $numMatches
+
+}
+
 Export-ModuleMember Copy-ADAttributesFromUser
 Export-ModuleMember Copy-ADGroupsFromUser
 Export-ModuleMember Copy-ADGroupMembersToGroup
 Export-ModuleMember New-ADUserFolderMappingScript
+Export-ModuleMember Find-ADUsername
