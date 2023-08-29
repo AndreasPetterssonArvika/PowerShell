@@ -129,7 +129,23 @@ function New-ADUserFolderMappingScript {
 
 }
 
+function Find-ADUsername {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$UserName
+    )
+
+    $ldapfilter = "(|(name=$UserName)(sAMAccountName=$UserName)(cn=$UserName)(mailNickname=$UserName)(proxyAddresses=*$UserName*))"
+    $matches = Get-ADUser -LDAPFilter $ldapfilter -Properties cn,mailNickname,proxyAddresses
+    
+    $numMatches = $matches | Measure-Object | Select-Object -ExpandProperty count
+
+    return $numMatches
+
+}
+
 Export-ModuleMember Copy-ADAttributesFromUser
 Export-ModuleMember Copy-ADGroupsFromUser
 Export-ModuleMember Copy-ADGroupMembersToGroup
 Export-ModuleMember New-ADUserFolderMappingScript
+Export-ModuleMember Find-ADUsername
