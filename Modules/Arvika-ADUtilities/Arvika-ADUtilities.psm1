@@ -109,12 +109,16 @@ function Copy-ADGroupMembersToGroup {
 
 }
 
+<#
+Funktionen uppdaterar en grupp baserat på medlemmarna i en annan grupp så att de ska vara lika
+Dessutom kan funktionen ta en tredje grupp som parameter. Denna grupps medlemmar ska exkluderas
+#>
 function Update-ADGroupMembersFromGroup {
     [cmdletbinding()]
     param (
-        [Parameter(Mandatory)][string]$SourceGroup,
-        [Parameter(Mandatory)][string]$TargetGroup,
-        [Parameter(ParameterSetName='ExcludeGroup')][string]$ExcludeGroup
+        [Parameter(Mandatory)][string]$SourceGroup,     # Gruppen som innehåller medlemmarna
+        [Parameter(Mandatory)][string]$TargetGroup,     # Gruppen som ska uppdateras
+        [Parameter(ParameterSetName='ExcludeGroup')][string]$ExcludeGroup   # Gruppen vars medlemmar ska exkluderas från den uppdaterade gruppen
     )
 
     # Hämta medlemmarna i SourceGroup
