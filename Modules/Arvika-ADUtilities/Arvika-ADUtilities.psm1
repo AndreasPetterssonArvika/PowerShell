@@ -119,34 +119,42 @@ function Update-ADGroupMembersFromGroup {
 
     # Hämta medlemmarna i SourceGroup
     $SourceIDs = @{}
-    Get-ADGroupMember -Identity $SourceGroup | Get-ADUser | ForEach-Object { $SourceIDs[$_.sAMAccountName] = 'sourceid' }
+    Get-ADGroupMember -Identity $SourceGroup | Get-ADUser | ForEach-Object { $curUserName = $_.sAMAccountName; $SourceIDs[$curUserName] = 'sourceid' }
 
     # Hämta medlemmarna i TargetGroup
     $TargetIDs = @{}
-    Get-ADGroupMember -Identity $TargetGroup | Get-ADUser | ForEach-Object { $TargetIDs[$_.sAMAccountName] = 'targetid' }
+    Get-ADGroupMember -Identity $TargetGroup | Get-ADUser | ForEach-Object { $curUserName = $_.sAMAccountName; $TargetIDs[$curUserName] = 'targetid' }
 
     # Jämför SourceGroup och TargetGroup och hitta de som ska läggas till
-    [hashtable]$usersToAdd = Compare-HashtableKeys -Data $SourceIDs -Comp $TargetIDs
+    [hashtable]$usersToAdd = Compare-HashtableKeys -Data $SourceIDs -Comp $TargetIDs -Verbose:$VerbosePreference
 
     # Jämför SourceGroup och TargetGroup och hitta de som ska tas bort
-    [hashtable]$usersToRemove = Compare-HashtableKeys -Data $TargetIDs -Comp $SourceIDs
+    [hashtable]$usersToRemove = Compare-HashtableKeys -Data $TargetIDs -Comp $SourceIDs -Verbose:$VerbosePreference
 
     if ( $ExcludeGroup ) {
         # Hämta medlemmarna i ExcludeGroup
         $ExcludeIDs = @{}
-        Get-ADGroupMember -Identity $ExcludeGroup | Get-ADUser | ForEach-Object { $ExcludeIDs[$_.sAMAccountName] = 'excludeid' }
+        Get-ADGroupMember -Identity $ExcludeGroup | Get-ADUser | ForEach-Object { $curUserName = $_.sAMAccountName; $ExcludeIDs[$curUserName] = 'excludeid' }
 
-        # Ta bort dem ur tillägg
-        [hashtable]$newAdd = Compare-HashtableKeys -Data $usersToAdd -Comp $ExcludeIDs
+        # Hämta användare i usersToAdd som inte finns i ExcludeIDs och gör till ny usersToAdd
+        [hashtable]$newAdd = Compare-HashtableKeys -Data $usersToAdd -Comp $ExcludeIDs -Verbose:$VerbosePreference
         $usersToAdd = $newAdd
+
+        # Hämta användare i usersToRemove som också finns i TargetIDs och lägg till i usersToRemove
+        [hashtable]$excludeRemoves = Compare-HashtableKeys -Data $ExcludeIDs -Comp $TargetIDs -CommonKeys
+        foreach ( $key in $excludeRemoves.Keys ) {
+            $usersToRemove[$key] = 'diff'
+        }
 
     }
 
-    # Lägg till medlemmar i TargetGroup
-    $usersToAdd.Keys | Add-ADPrincipalGroupMembership -MemberOf $TargetGroup
+    foreach ( $key in $usersToAdd.Keys ) {
+        Get-ADUser -Identity $key | Add-ADPrincipalGroupMembership -MemberOf $TargetGroup
+    }
 
-    # Ta bort medlemmar ur TargetGroup
-    $usersToRemove.Keys | Remove-ADPrincipalGroupMembership -MemberOf $TargetGroup
+    foreach ( $key in $usersToRemove.Keys ) {
+        Get-ADUser -Identity $key | Remove-ADPrincipalGroupMembership -MemberOf $TargetGroup -Confirm:$false
+    }
 
 }
 
@@ -272,3 +280,4 @@ Export-ModuleMember Copy-ADGroupsFromUser
 Export-ModuleMember Copy-ADGroupMembersToGroup
 Export-ModuleMember New-ADUserFolderMappingScript
 Export-ModuleMember Find-ADUsername
+Export-ModuleMember Update-ADGroupMembersFromGroup
