@@ -60,7 +60,8 @@ function Copy-ADGroupMembersToGroup {
     param (
         [Parameter(Mandatory)][string]$CopyFromGroup,
         [Parameter(Mandatory)][string]$CopyToGroup,
-        [Parameter()][switch]$SelectFromGridView
+        [Parameter(ParameterSetName="ExcludeGroup")][string]$ExcludeGroup,
+        [Parameter(ParameterSetname="SelectFromGridView")][switch]$SelectFromGridView
     )
 
     if ( $SelectFromGridView) {
@@ -96,6 +97,11 @@ function Copy-ADGroupMembersToGroup {
         # Lägg till alla användare i $selectedUsers i målgruppen
         $selectedUsers | ForEach-Object { Add-ADGroupMember -Identity $CopyToGroup -Members $_.SamAccountName }
 
+    } elseif ( $ExcludeGroup ) {
+        # Alla användare från CopyFromGroup utom användare från ExcludeGroup ska läggas till i CopyToGroup
+        $excludedUsers = @{}
+        Get-ADGroupMember -Identity $ExcludeGroup | Get-ADUser | Select-Object -ExpandProperty sAMAccountName | ForEach-Object { $excludedUsers[$_]='excluded' }
+        Get-ADGroupMember -Identity $CopyFromGroup | Get-ADUser | ForEach-Object { $curUser = $_.sAMAccountName; if ( -not $excludedUsers.ContainsKey($curUser) ) { Add-ADPrincipalGroupMembership -Identity $curUser -MemberOf $CopyToGroup } }
     } else {
         # Alla användare ska läggas över, hämta alla användare och lägg dem i målgruppen
         Get-ADGroupMember -Identity $CopyFromGroup | Add-ADPrincipalGroupMembership -MemberOf $CopyToGroup
