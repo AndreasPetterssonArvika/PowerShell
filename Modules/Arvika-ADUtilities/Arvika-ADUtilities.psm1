@@ -109,6 +109,59 @@ function Copy-ADGroupMembersToGroup {
 
 }
 
+<#
+Funktionen uppdaterar en grupp baserat på medlemmarna i en annan grupp så att de ska vara lika
+Dessutom kan funktionen ta en tredje grupp som parameter. Denna grupps medlemmar ska exkluderas
+#>
+function Update-ADGroupMembersFromGroup {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$SourceGroup,     # Gruppen som innehåller medlemmarna
+        [Parameter(Mandatory)][string]$TargetGroup,     # Gruppen som ska uppdateras
+        [Parameter(ParameterSetName='ExcludeGroup')][string]$ExcludeGroup   # Gruppen vars medlemmar ska exkluderas från den uppdaterade gruppen
+    )
+
+    # Hämta medlemmarna i SourceGroup
+    $SourceIDs = @{}
+    Get-ADGroupMember -Identity $SourceGroup | Get-ADUser | ForEach-Object { $curUserName = $_.sAMAccountName; $SourceIDs[$curUserName] = 'sourceid' }
+
+    # Hämta medlemmarna i TargetGroup
+    $TargetIDs = @{}
+    Get-ADGroupMember -Identity $TargetGroup | Get-ADUser | ForEach-Object { $curUserName = $_.sAMAccountName; $TargetIDs[$curUserName] = 'targetid' }
+
+    # Jämför SourceGroup och TargetGroup och hitta de som ska läggas till
+    [hashtable]$usersToAdd = Compare-HashtableKeys -Data $SourceIDs -Comp $TargetIDs -Verbose:$VerbosePreference
+
+    # Jämför SourceGroup och TargetGroup och hitta de som ska tas bort
+    [hashtable]$usersToRemove = Compare-HashtableKeys -Data $TargetIDs -Comp $SourceIDs -Verbose:$VerbosePreference
+
+    if ( $ExcludeGroup ) {
+        # Hämta medlemmarna i ExcludeGroup
+        $ExcludeIDs = @{}
+        Get-ADGroupMember -Identity $ExcludeGroup | Get-ADUser | ForEach-Object { $curUserName = $_.sAMAccountName; $ExcludeIDs[$curUserName] = 'excludeid' }
+
+        # Hämta användare i usersToAdd som inte finns i ExcludeIDs och gör till ny usersToAdd
+        [hashtable]$newAdd = Compare-HashtableKeys -Data $usersToAdd -Comp $ExcludeIDs -Verbose:$VerbosePreference
+        $usersToAdd = $newAdd
+
+        # Hämta användare i usersToRemove som också finns i TargetIDs och lägg till i usersToRemove
+        [hashtable]$excludeRemoves = Compare-HashtableKeys -Data $ExcludeIDs -Comp $TargetIDs -CommonKeys
+        foreach ( $key in $excludeRemoves.Keys ) {
+            $usersToRemove[$key] = 'diff'
+        }
+
+    }
+
+    foreach ( $key in $usersToAdd.Keys ) {
+        Get-ADUser -Identity $key | Add-ADPrincipalGroupMembership -MemberOf $TargetGroup
+    }
+
+    foreach ( $key in $usersToRemove.Keys ) {
+        Get-ADUser -Identity $key | Remove-ADPrincipalGroupMembership -MemberOf $TargetGroup -Confirm:$false
+    }
+
+}
+
 function New-ADUserFolderMappingScript {
     [cmdletbinding()]
     param(
@@ -186,8 +239,49 @@ function Find-ADUsername {
 
 }
 
+function Compare-HashtableKeys {
+    <#
+    Funktionen jämför hashtables
+    Data innehåller det data man är intresserad av, alla värden som returneras finns i denna hashtable.
+    Comp innehåller det man ska använda för jämförelse.
+    CommonKeys anger att unionen av hashtables ska returneras, allså alla i Data som också finns i Comp.
+    #>
+
+    [cmdletbinding()]
+    param(
+        [Parameter(Mandatory)][hashtable]$Data,
+        [Parameter(Mandatory)][hashtable]$Comp,
+        [Parameter()][switch]$CommonKeys
+    )
+
+    $return = @{}
+
+    if ( $CommonKeys ) {
+        foreach ( $key in $Data.Keys ) {
+            if ( $Comp.ContainsKey( $key ) ) {
+                # Gemensamma värden ska returneras, lägg till i returen
+                $return[$key]='common'
+            } else {
+                # Gör inget
+            }
+        }
+    } else {
+        foreach ( $key in $Data.Keys ) {
+            if ( $Comp.ContainsKey( $key ) ) {
+                # Diffen ska returneras, gör inget
+            } else {
+                # Skilda värden ska returneras, lägg till i returen
+                $return[$key]='diff'
+            }
+        }
+    }
+
+    return $return
+}
+
 Export-ModuleMember Copy-ADAttributesFromUser
 Export-ModuleMember Copy-ADGroupsFromUser
 Export-ModuleMember Copy-ADGroupMembersToGroup
 Export-ModuleMember New-ADUserFolderMappingScript
 Export-ModuleMember Find-ADUsername
+Export-ModuleMember Update-ADGroupMembersFromGroup
