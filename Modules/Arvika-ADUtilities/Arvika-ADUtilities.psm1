@@ -109,6 +109,47 @@ function Copy-ADGroupMembersToGroup {
 
 }
 
+function Update-ADGroupMembersFromGroup {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$SourceGroup,
+        [Parameter(Mandatory)][string]$TargetGroup,
+        [Parameter(ParameterSetName='ExcludeGroup')][string]$ExcludeGroup
+    )
+
+    # Hämta medlemmarna i SourceGroup
+    $SourceIDs = @{}
+    Get-ADGroupMember -Identity $SourceGroup | Get-ADUser | ForEach-Object { $SourceIDs[$_.sAMAccountName] = 'sourceid' }
+
+    # Hämta medlemmarna i TargetGroup
+    $TargetIDs = @{}
+    Get-ADGroupMember -Identity $TargetGroup | Get-ADUser | ForEach-Object { $TargetIDs[$_.sAMAccountName] = 'targetid' }
+
+    # Jämför SourceGroup och TargetGroup och hitta de som ska läggas till
+    [hashtable]$usersToAdd = Compare-HashtableKeys -Data $SourceIDs -Comp $TargetIDs
+
+    # Jämför SourceGroup och TargetGroup och hitta de som ska tas bort
+    [hashtable]$usersToRemove = Compare-HashtableKeys -Data $TargetIDs -Comp $SourceIDs
+
+    if ( $ExcludeGroup ) {
+        # Hämta medlemmarna i ExcludeGroup
+        $ExcludeIDs = @{}
+        Get-ADGroupMember -Identity $ExcludeGroup | Get-ADUser | ForEach-Object { $ExcludeIDs[$_.sAMAccountName] = 'excludeid' }
+
+        # Ta bort dem ur tillägg
+        [hashtable]$newAdd = Compare-HashtableKeys -Data $usersToAdd -Comp $ExcludeIDs
+        $usersToAdd = $newAdd
+
+    }
+
+    # Lägg till medlemmar i TargetGroup
+    $usersToAdd.Keys | Add-ADPrincipalGroupMembership -MemberOf $TargetGroup
+
+    # Ta bort medlemmar ur TargetGroup
+    $usersToRemove.Keys | Remove-ADPrincipalGroupMembership -MemberOf $TargetGroup
+
+}
+
 function New-ADUserFolderMappingScript {
     [cmdletbinding()]
     param(
@@ -184,6 +225,46 @@ function Find-ADUsername {
 
     return $numMatches
 
+}
+
+function Compare-HashtableKeys {
+    <#
+    Funktionen jämför hashtables
+    Data innehåller det data man är intresserad av, alla värden som returneras finns i denna hashtable.
+    Comp innehåller det man ska använda för jämförelse.
+    CommonKeys anger att unionen av hashtables ska returneras, allså alla i Data som också finns i Comp.
+    #>
+
+    [cmdletbinding()]
+    param(
+        [Parameter(Mandatory)][hashtable]$Data,
+        [Parameter(Mandatory)][hashtable]$Comp,
+        [Parameter()][switch]$CommonKeys
+    )
+
+    $return = @{}
+
+    if ( $CommonKeys ) {
+        foreach ( $key in $Data.Keys ) {
+            if ( $Comp.ContainsKey( $key ) ) {
+                # Gemensamma värden ska returneras, lägg till i returen
+                $return[$key]='common'
+            } else {
+                # Gör inget
+            }
+        }
+    } else {
+        foreach ( $key in $Data.Keys ) {
+            if ( $Comp.ContainsKey( $key ) ) {
+                # Diffen ska returneras, gör inget
+            } else {
+                # Skilda värden ska returneras, lägg till i returen
+                $return[$key]='diff'
+            }
+        }
+    }
+
+    return $return
 }
 
 Export-ModuleMember Copy-ADAttributesFromUser
