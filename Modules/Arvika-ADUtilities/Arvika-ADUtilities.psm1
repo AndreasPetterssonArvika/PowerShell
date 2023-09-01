@@ -244,7 +244,7 @@ Funktionen tar emot användare och kontrollerar deras lastLogonTimestamp
 Om den är äldre än deat angina antalet dagar eller tom, skickas denna
 användare vidare till pipeline.
 #>
-function Find-ADUsersWithOldLogons {
+function Find-ADUsersWithOldOrNoLastLogons {
     [cmdletbinding()]
     param (
         [Parameter(Mandatory,ValueFromPipeline)][Microsoft.ActiveDirectory.Management.ADObject]$ADUser,
@@ -312,4 +312,4 @@ Export-ModuleMember Copy-ADGroupMembersToGroup
 Export-ModuleMember New-ADUserFolderMappingScript
 Export-ModuleMember Find-ADUsername
 Export-ModuleMember Update-ADGroupMembersFromGroup
-Export-ModuleMember Find-ADUsersWithOldLogons
+Export-ModuleMember Find-ADUsersWithOldOrNoLastLogons
