@@ -1356,6 +1356,7 @@ Export-ModuleMember Lock-ANCOldUsers
 Export-ModuleMember Get-ANCUsersFromIDList
 Export-ModuleMember Get-ANCGSEUsers
 Export-ModuleMember Get-ANCAllUsers
+Export-ModuleMember Get-ANCDeleteCandidate
 Export-ModuleMember Get-ANCItsLearningUsersFromIDList
 Export-ModuleMember Get-ANCUserinfoFromOU
 Export-ModuleMember New-ANCStudentFolder
