@@ -1227,6 +1227,33 @@ function Get-ANCAllUsers {
     Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
 }
 
+<#
+Funktionen tar emot epostadresser från pipeline och kontrollerar om de inte loggat in på länge
+Om så är fallet skickas användaren vidare till pipeline för vidare behandling
+#>
+function Get-ANCDeleteCandidate {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)][string]$MailAddress,
+        [Parameter(Mandatory)][string]$SearchBase,
+        [Parameter()][string]$MailAttribute = 'mail',
+        [Parameter(Mandatory)][Int32]$DaysOld
+    )
+
+    begin {
+        $logonTimeCutoff = (Get-Date).AddDays(-$DaysOld).ToFileTime()
+    }
+
+    process {
+        $ldapfilter = "($MailAttribute=$Mailaddress)"
+        Get-ADUser -SearchBase $SearchBase -LDAPFilter $ldapfilter -Properties lastLogonTimeStamp | Where-Object { $_.lastLogonTimeStamp -lt $logonTimeCutoff } | Write-Output $_
+    }
+
+    end {}
+
+}
+
+
 function Get-ANCUserinfoFromOU {
     [cmdletbinding()]
     param (
