@@ -313,3 +313,4 @@ Export-ModuleMember New-ADUserFolderMappingScript
 Export-ModuleMember Find-ADUsername
 Export-ModuleMember Update-ADGroupMembersFromGroup
 Export-ModuleMember Find-ADUsersWithOldOrNoLastLogons
+Export-ModuleMember Compare-HashtableKeys
