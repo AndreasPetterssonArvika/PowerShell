@@ -239,6 +239,33 @@ function Find-ADUsername {
 
 }
 
+<#
+Funktionen tar emot användare och kontrollerar deras lastLogonTimestamp
+Om den är äldre än deat angina antalet dagar eller tom, skickas denna
+användare vidare till pipeline.
+#>
+function Find-ADUsersWithOldOrNoLastLogons {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)][Microsoft.ActiveDirectory.Management.ADObject]$ADUser,
+        [Parameter()][Int32]$DaysOld
+    )
+
+    begin {
+        # Skapa värdet i FileTime-format för jämförelsen
+        $ageLimit = (Get-Date).AddDays(-$DaysOld).ToFileTime()
+    }
+
+    process {
+        # Kontrollera lastLogonTimestamp mot ageLimit, skicka vidare på pipeline om
+        # användarens senaset inloggning är för gammal.
+        $ADUser | Get-ADUser -Properties lastLogonTimeStamp | ForEach-Object { if ( $_.lastLogonTimeStamp -lt $ageLimit) { Write-Output $_ } }
+    }
+
+    end {}
+
+}
+
 function Compare-HashtableKeys {
     <#
     Funktionen jämför hashtables
@@ -285,3 +312,4 @@ Export-ModuleMember Copy-ADGroupMembersToGroup
 Export-ModuleMember New-ADUserFolderMappingScript
 Export-ModuleMember Find-ADUsername
 Export-ModuleMember Update-ADGroupMembersFromGroup
+Export-ModuleMember Find-ADUsersWithOldOrNoLastLogons
