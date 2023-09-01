@@ -1246,7 +1246,7 @@ function Get-ANCDeleteCandidate {
 
     process {
         $ldapfilter = "($MailAttribute=$Mailaddress)"
-        Get-ADUser -SearchBase $SearchBase -LDAPFilter $ldapfilter -Properties lastLogonTimeStamp | Where-Object { $_.lastLogonTimeStamp -lt $logonTimeCutoff } | Write-Output $_
+        Get-ADUser -SearchBase $SearchBase -LDAPFilter $ldapfilter -Properties lastLogonTimeStamp | ForEach-Object { if ( $_.lastLogonTimeStamp -lt $logonTimeCutoff) { Write-Output $_ } }
     }
 
     end {}
