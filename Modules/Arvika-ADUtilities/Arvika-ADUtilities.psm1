@@ -1,11 +1,15 @@
-# Script copies attributes from one user to another
-#
-# Parameters:
-# - $copyFromUser, the user to be copied from
-# - $userToCopyTo, the user to be copied to, sAMAccountName
-# - $userAttributes, the attributes to be copied
+<#
+Script copies attributes from one user to another
+
+Parameters:
+- $copyFromUser, the user to be copied from
+- $userToCopyTo, the user to be copied to, sAMAccountName
+- $userAttributes, the attributes to be copied
+
+#>
+
 function Copy-ADAttributesFromUser {
-    [cmdletbinding(SupportsShouldProcess)]
+    [cmdletbinding()]
     param (
         [Parameter(Mandatory)][string]$copyFromUser,
         [Parameter(Mandatory,ValueFromPipeline)][Microsoft.ActiveDirectory.Management.ADAccount]$copyToUser,
@@ -112,14 +116,23 @@ function Copy-ADGroupMembersToGroup {
 <#
 Funktionen uppdaterar en grupp baserat på medlemmarna i en annan grupp så att de ska vara lika
 Dessutom kan funktionen ta en tredje grupp som parameter. Denna grupps medlemmar ska exkluderas
+
+Issue #236, lägger till ShouldProcess and verbosity
 #>
 function Update-ADGroupMembersFromGroup {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)][string]$SourceGroup,     # Gruppen som innehåller medlemmarna
         [Parameter(Mandatory)][string]$TargetGroup,     # Gruppen som ska uppdateras
         [Parameter(ParameterSetName='ExcludeGroup')][string]$ExcludeGroup   # Gruppen vars medlemmar ska exkluderas från den uppdaterade gruppen
     )
+
+    # Issue #236
+    Write-Verbose "Using $SourceGroup as the source"
+    Write-Verbose "Updating the members of $TargetGroup"
+    if ( $PSBoundParameters.ContainsKey('ExcludeGroup') ) {
+        Write-Verbose "Excluding members of $ExcludeGroup"
+    }
 
     # Hämta medlemmarna i SourceGroup
     $SourceIDs = @{}
@@ -152,12 +165,23 @@ function Update-ADGroupMembersFromGroup {
 
     }
 
+    # Lägg till användare i $TargetGroup baserat på användarnamnen i hashtable
+    # Issue #236, lagt till ShouldProcesss
     foreach ( $key in $usersToAdd.Keys ) {
-        Get-ADUser -Identity $key | Add-ADPrincipalGroupMembership -MemberOf $TargetGroup
+        $msg = "Adding user $key found in $SourceGroup to $TargetGroup"
+        if ( $PSCmdlet.ShouldProcess($msg,$key,'Add to Active Directory group') ) {
+            Get-ADUser -Identity $key | Add-ADPrincipalGroupMembership -MemberOf $TargetGroup
+        }
+        
     }
 
+    # Ta bort användare från $TargetGroup baserat på användarnamnen i hashtable
+    # Issue #236, lagt till ShouldProcesss
     foreach ( $key in $usersToRemove.Keys ) {
-        Get-ADUser -Identity $key | Remove-ADPrincipalGroupMembership -MemberOf $TargetGroup -Confirm:$false
+        $msg = "Removing user $key not found in $SourceGroup from $TargetGroup"
+        if ( $PSCmdlet.ShouldProcess($msg,$key,'Remove from Active Directory group') ) {
+            Get-ADUser -Identity $key | Remove-ADPrincipalGroupMembership -MemberOf $TargetGroup -Confirm:$false
+        }
     }
 
 }
