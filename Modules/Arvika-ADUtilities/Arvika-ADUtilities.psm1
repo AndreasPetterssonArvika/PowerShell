@@ -330,6 +330,21 @@ function Compare-HashtableKeys {
     return $return
 }
 
+<#
+Funktionen hämtar ImmutableID som Base64String för en given AD-användare
+
+Referens: http://terenceluk.blogspot.com/2020/10/powershell-script-to-extract-objectguid.html
+#>
+function Get-ImmutableIDForUser {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][Microsoft.ActiveDirectory.Management.ADObject]$ADUser
+    )
+
+    [System.Convert]::ToBase64String($ADUser.ObjectGuid.ToByteArray()) | Write-Output
+
+}
+
 Export-ModuleMember Copy-ADAttributesFromUser
 Export-ModuleMember Copy-ADGroupsFromUser
 Export-ModuleMember Copy-ADGroupMembersToGroup
@@ -338,3 +353,4 @@ Export-ModuleMember Find-ADUsername
 Export-ModuleMember Update-ADGroupMembersFromGroup
 Export-ModuleMember Find-ADUsersWithOldOrNoLastLogons
 Export-ModuleMember Compare-HashtableKeys
+Export-ModuleMember Get-ImmutableIDForUser
