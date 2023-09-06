@@ -347,6 +347,8 @@ function Get-ImmutableIDForUser {
 
 <#
 Funktionen tar emot en ADUser från pipeline och lämnar specifika data som en semikolonseparerad textsträng
+Ärende #45799
+Issue #240
 #>
 function Get-SVUserData {
     [cmdletbinding()]
