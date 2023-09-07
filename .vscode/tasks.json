@@ -17,8 +17,7 @@
             "command": "..\\..\\CodeTaskScripts\\Arvika-XS-groups-Task.ps1",
             "problemMatcher": [],
             "group": {
-                "kind": "build",
-                "isDefault": true
+                "kind": "build"
             }
         },
         {
@@ -27,7 +26,8 @@
             "command": "..\\..\\CodeTaskScripts\\Update-LocalModules.ps1",
             "problemMatcher": [],
             "group": {
-                "kind": "build"
+                "kind": "build",
+                "isDefault": true
             }
         }
     ]
