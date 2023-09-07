@@ -349,6 +349,7 @@ function Get-ImmutableIDForUser {
 Funktionen tar emot en ADUser från pipeline och lämnar specifika data som en semikolonseparerad textsträng
 Ärende #45799
 Issue #240
+Issue #243, ändrade data i exporten
 #>
 function Get-SVUserData {
     [cmdletbinding()]
@@ -359,11 +360,12 @@ function Get-SVUserData {
     begin {}
 
     process {
-        $curUser = $ADUser | Get-ADUser -Properties displayName,userPrincipalName,mail
-        $userdata = $curuser.displayName + ";" + $curUser.userPrincipalName + ";"  + $curUser.mail
+        $curUser = $ADUser | Get-ADUser -Properties givenName,SN,mail
+        $userdata = $curuser.givenName + ";" + $curUser.SN + ";"  + $curUser.mail
         $ImmutableID = Get-ImmutableIDForUser -ADUser $ADUser
         $userdata += ";" + $ImmutableID
         Write-Output $userdata
+        
     }
 
     end {}
