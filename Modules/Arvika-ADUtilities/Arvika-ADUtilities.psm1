@@ -361,13 +361,10 @@ function Get-SVUserData {
 
     process {
         $curUser = $ADUser | Get-ADUser -Properties givenName,SN,mail
-        $curMail = $curUser.mail
-        if ( $curMail ) {
-            $userdata = $curuser.givenName + ";" + $curUser.SN + ";"  + $curUser.mail
-            $ImmutableID = Get-ImmutableIDForUser -ADUser $ADUser
-            $userdata += ";" + $ImmutableID
-            Write-Output $userdata
-        }
+        $userdata = $curuser.givenName + ";" + $curUser.SN + ";"  + $curUser.mail
+        $ImmutableID = Get-ImmutableIDForUser -ADUser $ADUser
+        $userdata += ";" + $ImmutableID
+        Write-Output $userdata
         
     }
 
