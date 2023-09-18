@@ -135,12 +135,22 @@ function Update-ADGroupMembersFromGroup {
     }
 
     # Hämta medlemmarna i SourceGroup
+    Write-Verbose "Fetching users from $SourceGroup"
     $SourceIDs = @{}
     Get-ADGroupMember -Identity $SourceGroup | Get-ADUser | ForEach-Object { $curUserName = $_.sAMAccountName; $SourceIDs[$curUserName] = 'sourceid' }
+    if ( $VerbosePreference ) {
+        $numSource = $SourceIDs.Keys | Measure-Object | Select-Object -ExpandProperty Count
+        Write-Verbose "There are $numSource users in $SourceGroup"
+    }
 
     # Hämta medlemmarna i TargetGroup
+    Write-Verbose "Fetching users from $TargetGroup"
     $TargetIDs = @{}
     Get-ADGroupMember -Identity $TargetGroup | Get-ADUser | ForEach-Object { $curUserName = $_.sAMAccountName; $TargetIDs[$curUserName] = 'targetid' }
+    if ( $VerbosePreference ) {
+        $numTarget = $targetIDs.Keys | Measure-Object | Select-Object -ExpandProperty Count
+        Write-Verbose "There are $numTarget users in $TargetGroup"
+    }
 
     # Jämför SourceGroup och TargetGroup och hitta de som ska läggas till
     [hashtable]$usersToAdd = Compare-HashtableKeys -Data $SourceIDs -Comp $TargetIDs -Verbose:$VerbosePreference
@@ -150,8 +160,13 @@ function Update-ADGroupMembersFromGroup {
 
     if ( $ExcludeGroup ) {
         # Hämta medlemmarna i ExcludeGroup
+        Write-Verbose "Fetching users from $ExcludeGroup"
         $ExcludeIDs = @{}
         Get-ADGroupMember -Identity $ExcludeGroup | Get-ADUser | ForEach-Object { $curUserName = $_.sAMAccountName; $ExcludeIDs[$curUserName] = 'excludeid' }
+        if ( $VerbosePreference ) {
+            $numExclude = $ExcludeIDs.Keys | Measure-Object | Select-Object -ExpandProperty Count
+            Write-Verbose "There are $numExclude users in $ExcludeGroup"
+        }
 
         # Hämta användare i usersToAdd som inte finns i ExcludeIDs och gör till ny usersToAdd
         [hashtable]$newAdd = Compare-HashtableKeys -Data $usersToAdd -Comp $ExcludeIDs -Verbose:$VerbosePreference
