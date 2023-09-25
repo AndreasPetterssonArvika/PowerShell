@@ -229,7 +229,8 @@ function Export-ADGroupMembersToTextfile {
 <#
 Funktionen importerar användare från en textfil
 Filnamnet förutsätts vara <sAMAccountName för gruppen>.txt
-Användarian förutsätts vara lagrade med sina respektive sAMAcountNames
+Användarna förutsätts vara lagrade med sina respektive sAMAccountNames
+Issue #248
 #>
 function Import-ADGroupMembersFromTextfile {
     [cmdletbinding()]
