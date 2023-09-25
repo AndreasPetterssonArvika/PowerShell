@@ -418,6 +418,7 @@ Export-ModuleMember New-ADUserFolderMappingScript
 Export-ModuleMember Find-ADUsername
 Export-ModuleMember Update-ADGroupMembersFromGroup
 Export-ModuleMember Export-ADGroupMembersToTextfile
+Export-ModuleMember Import-ADGroupMembersFromTextfile
 Export-ModuleMember Find-ADUsersWithOldOrNoLastLogons
 Export-ModuleMember Compare-HashtableKeys
 Export-ModuleMember Get-ImmutableIDForUser
