@@ -201,6 +201,55 @@ function Update-ADGroupMembersFromGroup {
 
 }
 
+<#
+Funktionen exporterar gruppanvändare till textfiler i en angiven mapp.
+Filen får namnet <sAMAccountName för gruppen>.txt
+Användarnas sAMAccountNames lagras.
+Issue #248
+#>
+function Export-ADGroupMembersToTextfile {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)][string]$GroupName,
+        [Parameter(Mandatory)][string]$ExportFolder
+    )
+
+    begin {}
+
+    process {
+        $currentGroup = Get-ADGroup -Identity $GroupName
+        $exportFilepath = "$ExportFolder\$Groupname.txt"
+        $currentGroup | Get-ADGroupMember | Get-ADUser | select-object -ExpandProperty sAMAccountName | Out-File -FilePath $exportFilepath -Encoding utf8
+    }
+
+    end {}
+
+}
+
+<#
+Funktionen importerar användare från en textfil
+Filnamnet förutsätts vara <sAMAccountName för gruppen>.txt
+Användarna förutsätts vara lagrade med sina respektive sAMAccountNames
+Issue #248
+#>
+function Import-ADGroupMembersFromTextfile {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)][string]$FilePath
+    )
+
+    begin {}
+
+    process {
+        # Läs ut gruppnamnet ur sökvägen
+        $currentGroup = [System.IO.Path]::GetFileNameWithoutExtension($FilePath)
+        Get-Content -Path $FilePath | Get-ADUser | Add-ADPrincipalGroupMembership -MemberOf $currentGroup
+    }
+
+    end {}
+
+}
+
 function New-ADUserFolderMappingScript {
     [cmdletbinding()]
     param(
@@ -368,6 +417,8 @@ Export-ModuleMember Copy-ADGroupMembersToGroup
 Export-ModuleMember New-ADUserFolderMappingScript
 Export-ModuleMember Find-ADUsername
 Export-ModuleMember Update-ADGroupMembersFromGroup
+Export-ModuleMember Export-ADGroupMembersToTextfile
+Export-ModuleMember Import-ADGroupMembersFromTextfile
 Export-ModuleMember Find-ADUsersWithOldOrNoLastLogons
 Export-ModuleMember Compare-HashtableKeys
 Export-ModuleMember Get-ImmutableIDForUser
