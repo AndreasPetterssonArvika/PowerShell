@@ -1208,7 +1208,6 @@ function Get-ANCGSEUsers {
 
     $attributes = @('sAMAccountName';'displayName';'SN';'givenName','extensionAttribute1')
 
-    #Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append -Encoding utf8
     Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | ForEach-Object { $SAM=$_.sAMAccountName;$disp=$_.displayName;$SN=$_.SN;$GN=$_.givenName;$mail=$_.extensionAttribute1;"$SAM;$disp;$SN;$GN;$mail" } | Out-File -FilePath $OutFile -Append -Encoding utf8
 
 }
