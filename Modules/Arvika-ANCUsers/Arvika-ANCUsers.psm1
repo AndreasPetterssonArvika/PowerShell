@@ -105,7 +105,7 @@ function Update-ANCVUXElever {
     }
     
     #<#
-    # TODO Möjlighet att avbryta här om det finns frågetecken?
+    # TODO Möjlighet att avbryta här om det finns frågetecken
     $numNewUserCands = $newUserCandidates.Keys | Measure-Object | Select-Object -ExpandProperty Count
     $numRetireCands = $retireCandidates.Keys | Measure-Object | Select-Object -ExpandProperty Count
     $numRestoreCands = $restoreCandidates.Keys | Measure-Object | Select-Object -ExpandProperty Count
@@ -623,7 +623,7 @@ function New-ANCStudentUsers {
     foreach ( $row in $UniqueStudents )  {   #Write-Debug "New user row`: $row"
         if ( $NewUserDict.ContainsKey($row.IDKey) ) {
             
-            $tGN = $row.Förnamn
+            $tGN = $row.givenName
             $tMN = $row.Mellannamn
             $tSN = $row.Efternamn
             $tKey = $row.IDKey
@@ -667,7 +667,6 @@ function New-ANCStudentUser {
     Write-Debug "New-ANCStudentUser`: Got username $username"
     $UPN = "$username@$ADDomain"
     $usermail = "$username@$MailDomain"
-    #$userPwd='Arvika2022'
     $userPwd=$username
 
     Write-Debug "New-ANCStudentUser`: $username"
