@@ -1110,10 +1110,7 @@ function Get-PCGivenName {
 
 Exporterar en lista som underlag för ANC:s ansvarsförbindelser
 Funktionen tar en lista från Vägledningscentrum som indata för att hämta personerna till listan
-Lsiatn innehåller bl a namn, användarnamn och lösenord
-Eftersom vissa personer har konton sen tidigare görs en kontroll för att se vilka som loggat in nyligen.
-De användarna får inte sina lösenord återställda och ska därför inte heller få ett
-utskrivet lösenord på ansvarsförbindelsen
+Listan innehåller bl a namn, användarnamn och lösenord
 Resultatet av kontrollen lagras i en fil som kan anges som indata
 
 #>
@@ -1123,23 +1120,11 @@ function Get-ANCUsersFromIDList {
         [string][Parameter(Mandatory)]$OldIDListPath,
         [string][Parameter(Mandatory)]$UserIdentifier,
         [string][Parameter(Mandatory)]$OldUserIdentifier,
-        [string][Parameter(Mandatory)]$OutFile,
-        [string][Parameter()]$RecentLoginsFile
+        [string][Parameter(Mandatory)]$OutFile
     )
 
     # Hämta lista med identifierare
     $OldIDList = Import-Csv -Path $OldIDListPath -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
-
-    $RecentLoginsDict = @{}
-
-    if ( $RecentLoginsFile ) {
-        # Läs in mailadresserna i filen till en dictionary
-        $recentLogins = Get-Content -Path $RecentLoginsFile | ConvertFrom-Csv -Delimiter ';'
-        foreach ( $login in $recentLogins ) {
-            $userMail = $login.mail
-            $RecentLoginsDict[$userMail] = 'recent'
-        }
-    }
 
     "$UserIdentifier;SN;givenName;sAMAccountName;displayName;password" | Out-File -FilePath $OutFile
 
@@ -1148,17 +1133,9 @@ function Get-ANCUsersFromIDList {
     foreach ( $OldID in $OldIDList ) {
         $UID = ConvertTo-IDKey12 -IDKey11 $OldID
         $ldapfilter = "($UserIdentifier=$UID)"
-        #Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
-        #Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes | Where-Object { -not $RecentLoginsDict.ContainsKey($_.extensionAttribute1) } | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
         $curUser = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
         $curUserMail = $curUser.extensionAttribute1
         $pwdString = $curUser.sAMAccountName
-        if ( $RecentLoginsDict.ContainsKey($curUsermail) ) {
-            # Användaren är en av dem som loggat in nyligen
-            # Ändra lösenordsvärdet till en text om att lösenordet
-            # redan är satt för användaren.
-            $pwdString = '<Samma lösen som tidigare>'
-        }
 
         # Skapa sträng med utdata
         $outstring = $curuser.$UserIdentifier + ';' +  $curUser.SN + ';' + $curUser.givenName + ';' + $curUser.sAMAccountName + ';' + $curUser.displayName + ';' + $pwdString
