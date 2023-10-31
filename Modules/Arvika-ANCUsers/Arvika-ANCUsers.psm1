@@ -11,7 +11,7 @@ function Update-ANCVUXElever {
     param (
     [string][Parameter(Mandatory)]$ImportFile,
     [char]$ImportDelim,
-    [string][Parameter(Mandatory)]$UserInputIdentifier,
+    [string][Parameter(Mandatory)]$UserInputIdentifier,   # Används enbart vid inläsningen av indatafilen, attributet skrivs om till namnet IDKey
     [string][Parameter(Mandatory)]$UserIdentifier,
     [string][Parameter(Mandatory)]$UserIdentifierPattern,
     [Int32][Parameter(Mandatory)]$UserIdentifierPartialMatchLength,
@@ -36,7 +36,7 @@ function Update-ANCVUXElever {
     Write-Verbose "Läser in underlag från ProCapita"
     Write-Debug "Path`: $ImportFile"
     Write-Debug "Delimiter`: $ImportDelimiter"
-    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf7 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
+    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf7 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Mellannamn,Efternamn,@{n='givenName';e={$_.Förnamn}},@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
     [hashtable]$studentDict = Get-ANCStudentDict -StudentRows $uniqueStudents
 
     #<#
@@ -174,8 +174,9 @@ function Get-ANCStudentDict {
     foreach ( $row in $StudentRows ) {
 
         $tKey = ConvertTo-IDKey12 -IDKey11 $row.IDKey
-        $tName = $row.Namn
-        $retHash.Add($tKey,$tName)
+        #$tName = $row.Namn
+        $tValue = 'Imported student'
+        $retHash.Add($tKey,$tValue)
     }
 
     return $retHash
@@ -621,11 +622,14 @@ function New-ANCStudentUsers {
 
     foreach ( $row in $UniqueStudents )  {   #Write-Debug "New user row`: $row"
         if ( $NewUserDict.ContainsKey($row.IDKey) ) {
-            $tFullName = $row.Namn
+            
+            $tGN = $row.Förnamn
+            $tMN = $row.Mellannamn
+            $tSN = $row.Efternamn
             $tKey = $row.IDKey
             Write-Debug "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
             try {
-                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -FileServer $FileServer -WhatIf:$WhatIfPreference
+                New-ANCStudentUser -GivenName $tGN -MiddleName $tMN -Surname $tSN -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -FileServer $FileServer -WhatIf:$WhatIfPreference
             } catch [System.Management.Automation.RuntimeException] {
                 # Fel när användaren skulle skapas
                 Write-Debug "New-ANCStudentUsers`: Fel när användaren skulle skapas"
@@ -640,7 +644,9 @@ function New-ANCStudentUsers {
 function New-ANCStudentUser {
     [cmdletbinding(SupportsShouldProcess)]
     param(
-        [string][Parameter(Mandatory)]$PCFullName,
+        [string][Parameter(Mandatory)]$GivenName,
+        [string][Parameter(Mandatory)]$MiddleName,
+        [string][Parameter(Mandatory)]$Surname,
         [string][Parameter(Mandatory)]$IDKey,
         [string][Parameter(Mandatory)]$UserPrefix,
         [string][Parameter(Mandatory)]$UserIdentifier,
@@ -655,10 +661,9 @@ function New-ANCStudentUser {
     Write-Debug "New-ANCStudentUser`: Starting function..."
 
     $ADDomain = Get-ADDomain | Select-Object -ExpandProperty DNSRoot
-    $givenName = Get-PCGivenName -PCName $PCFullName
-    $SN = Get-PCSurName -PCName $PCFullName
-    $displayName = "$givenName $SN"
-    $username = New-ANCUserName -Prefix $UserPrefix -GivenName $givenName -SN $SN
+    $SN = Get-PCSurName -MiddleName $MiddleName -SurName $Surname
+    $displayName = "$GivenName $SN"
+    $username = New-ANCUserName -Prefix $UserPrefix -GivenName $GivenName -SN $SN
     Write-Debug "New-ANCStudentUser`: Got username $username"
     $UPN = "$username@$ADDomain"
     $usermail = "$username@$MailDomain"
@@ -669,7 +674,7 @@ function New-ANCStudentUser {
 
     try {
         if ( $PSCmdlet.ShouldProcess("Skapar användaren $username",$username,'Skapa användare') ) {
-            New-ADUser -SamAccountName $username -Name $username -DisplayName $displayName -GivenName $givenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
+            New-ADUser -SamAccountName $username -Name $username -DisplayName $displayName -GivenName $GivenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
         }
         
     } catch [System.ServiceModel.FaultException] {
@@ -1074,13 +1079,17 @@ function ConvertTo-ANCAlfaNumeric {
     return $myString
 }
 
+<#
+Funktionen skapar efternamnet baserat på mellannamn och efternamn från Edlevo
+#>
 function Get-PCSurName {
     [cmdletbinding()]
     param (
-        [string][Parameter(Mandatory)]$PCName
+        [string][Parameter(Mandatory)]$MiddleName,
+        [string][Parameter(Mandatory)]$SurName
     )
 
-    $SN = $PCName.Split(',')[0].Trim()
+    $SN = "$Middlename $SurName".Trim()
 
     return $SN
 
