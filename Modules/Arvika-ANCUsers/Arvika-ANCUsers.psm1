@@ -36,13 +36,14 @@ function Update-ANCVUXElever {
     Write-Verbose "Läser in underlag från ProCapita"
     Write-Debug "Path`: $ImportFile"
     Write-Debug "Delimiter`: $ImportDelimiter"
-    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf8 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Mellannamn,Efternamn,@{n='givenName';e={$_.Förnamn}},@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
+    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf8 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Mellannamn,Efternamn,@{n='givenName';e={$_.Fornamn}},@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
     [hashtable]$studentDict = Get-ANCStudentDict -StudentRows $uniqueStudents
 
     #<#
     #Uppdatera importerad nyckel till gängse format
     foreach ( $row in $uniqueStudents ) {
         $row.IDKey=ConvertTo-IDKey12 -IDKey11 $row.IDKey
+        write-debug $row.givenName
     }
     #>
 
@@ -627,7 +628,7 @@ function New-ANCStudentUsers {
             $tMN = $row.Mellannamn
             $tSN = $row.Efternamn
             $tKey = $row.IDKey
-            Write-Debug "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
+            Write-Debug "New-ANCStudentUsers`: Ny användare $tGN $tMN $tSN $tKey"
             try {
                 New-ANCStudentUser -GivenName $tGN -MiddleName $tMN -Surname $tSN -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -FileServer $FileServer -WhatIf:$WhatIfPreference
             } catch [System.Management.Automation.RuntimeException] {
@@ -645,7 +646,7 @@ function New-ANCStudentUser {
     [cmdletbinding(SupportsShouldProcess)]
     param(
         [string][Parameter(Mandatory)]$GivenName,
-        [string][Parameter(Mandatory)]$MiddleName,
+        [string][Parameter()]$MiddleName,
         [string][Parameter(Mandatory)]$Surname,
         [string][Parameter(Mandatory)]$IDKey,
         [string][Parameter(Mandatory)]$UserPrefix,
@@ -1084,11 +1085,15 @@ Funktionen skapar efternamnet baserat på mellannamn och efternamn från Edlevo
 function Get-PCSurName {
     [cmdletbinding()]
     param (
-        [string][Parameter(Mandatory)]$MiddleName,
+        [string][Parameter()]$MiddleName,
         [string][Parameter(Mandatory)]$SurName
     )
 
-    $SN = "$Middlename $SurName".Trim()
+    if ( $MiddleName ) {
+        $SN = "$Middlename $SurName".Trim()
+    } else {
+        $SN = "$SurName".Trim()
+    }
 
     return $SN
 
