@@ -1218,6 +1218,51 @@ function Get-ANCAllUsers {
 }
 
 <#
+Funktionen hämtar underlag för användarlistor för ANC-kurser
+#>
+function Get-ANCLCUserList {
+    [cmdletbinding()]
+    param (
+        [Parameter(ParameterSetName='UserIDFile')][string]$UserIDFile,
+        [Parameter(ParameterSetName='UserIDFile')][string]$UserIdentifier,
+
+        [Parameter(ParameterSetName='OU')][string]$OU,
+
+        [Parameter(ParameterSetName='UserIDFile')]
+        [Parameter(ParameterSetName='OU')]
+        [string]$OutFolder = '.'
+
+    )
+
+    $now = Get-Date -Format 'yyyyMMdd_HHmm'
+
+    $outfile = "$OutFolder\LC_konton_$now.csv"
+
+    'displayName;userPrincipalName;sAMAccountName' | Out-File -FilePath $outfile -Encoding utf8
+
+    if ( $OU ) {
+        # Hämta användare baserat på OU
+        Get-ADUser -Filter * -SearchBase $OU -Properties displayName,userPrincipalName,sAMAccountName | ForEach-Object { $displayName = $_.displayName; $upn=$_.userPrincipalName;$sam=$_.sAMAccountName;$row="$displayName;$upn;$sam"; $row | Out-File -FilePath $outfile -Encoding utf8 -Append}
+    } elseif ( $UserIDFile ) {
+        # Hämta användare baserat på en ID-fil
+        $userIDList = Import-Csv -Path $UserIDFile -Delimiter ';' | Select-Object -ExpandProperty $UserIdentifier
+
+        foreach ( $userID in $userIDList) {
+            $userID12 = ConvertTo-IDKey12 -IDKey11 $userID
+            $ldapfilter = "($UserIdentifier=$userID12)"
+            Get-ADUser -LDAPFilter $ldapfilter -Properties displayName,userPrincipalName,sAMAccountName | ForEach-Object { $displayName = $_.displayName; $upn=$_.userPrincipalName;$sam=$_.sAMAccountName;$row="$displayName;$upn;$sam"; $row | Out-File -FilePath $outfile -Encoding utf8 -Append}
+        }
+
+    } else {
+
+        Write-warning "Funktionen Get-ANCLCUserList undrar: Hur i hela friden hamnade du här?"
+
+    }
+    
+
+}
+
+<#
 Funktionen tar emot epostadresser från pipeline och kontrollerar om de inte loggat in på länge
 Om så är fallet skickas användaren vidare till pipeline för vidare behandling
 #>
@@ -1332,6 +1377,7 @@ function Get-ANCUserDocsList {
 #>
 
 Export-ModuleMember -Function Update-ANCVUXElever
+Export-ModuleMember -Function Get-ANCLCUserList
 
 #<#
 # Export av alla funktioner för testning
