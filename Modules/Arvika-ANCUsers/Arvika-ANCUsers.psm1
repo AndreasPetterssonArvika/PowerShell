@@ -11,7 +11,7 @@ function Update-ANCVUXElever {
     param (
     [string][Parameter(Mandatory)]$ImportFile,
     [char]$ImportDelim,
-    [string][Parameter(Mandatory)]$UserInputIdentifier,
+    [string][Parameter(Mandatory)]$UserInputIdentifier,   # Används enbart vid inläsningen av indatafilen, attributet skrivs om till namnet IDKey
     [string][Parameter(Mandatory)]$UserIdentifier,
     [string][Parameter(Mandatory)]$UserIdentifierPattern,
     [Int32][Parameter(Mandatory)]$UserIdentifierPartialMatchLength,
@@ -36,13 +36,14 @@ function Update-ANCVUXElever {
     Write-Verbose "Läser in underlag från ProCapita"
     Write-Debug "Path`: $ImportFile"
     Write-Debug "Delimiter`: $ImportDelimiter"
-    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf7 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Namn,@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
+    $uniqueStudents = Import-Csv -Path $ImportFile -Delimiter $ImportDelim -Encoding utf8 | Where-Object { $_.Skolform -ne 'SV' } | Select-Object -Property Mellannamn,Efternamn,@{n='givenName';e={$_.Fornamn}},@{n='IDKey';e={$_.$UserInputIdentifier}} | Sort-Object -Property IDKey | Get-Unique -AsString
     [hashtable]$studentDict = Get-ANCStudentDict -StudentRows $uniqueStudents
 
     #<#
     #Uppdatera importerad nyckel till gängse format
     foreach ( $row in $uniqueStudents ) {
         $row.IDKey=ConvertTo-IDKey12 -IDKey11 $row.IDKey
+        write-debug $row.givenName
     }
     #>
 
@@ -105,7 +106,7 @@ function Update-ANCVUXElever {
     }
     
     #<#
-    # TODO Möjlighet att avbryta här om det finns frågetecken?
+    # TODO Möjlighet att avbryta här om det finns frågetecken
     $numNewUserCands = $newUserCandidates.Keys | Measure-Object | Select-Object -ExpandProperty Count
     $numRetireCands = $retireCandidates.Keys | Measure-Object | Select-Object -ExpandProperty Count
     $numRestoreCands = $restoreCandidates.Keys | Measure-Object | Select-Object -ExpandProperty Count
@@ -174,8 +175,9 @@ function Get-ANCStudentDict {
     foreach ( $row in $StudentRows ) {
 
         $tKey = ConvertTo-IDKey12 -IDKey11 $row.IDKey
-        $tName = $row.Namn
-        $retHash.Add($tKey,$tName)
+        #$tName = $row.Namn
+        $tValue = 'Imported student'
+        $retHash.Add($tKey,$tValue)
     }
 
     return $retHash
@@ -621,11 +623,14 @@ function New-ANCStudentUsers {
 
     foreach ( $row in $UniqueStudents )  {   #Write-Debug "New user row`: $row"
         if ( $NewUserDict.ContainsKey($row.IDKey) ) {
-            $tFullName = $row.Namn
+            
+            $tGN = $row.givenName
+            $tMN = $row.Mellannamn
+            $tSN = $row.Efternamn
             $tKey = $row.IDKey
-            Write-Debug "New-ANCStudentUsers`: Ny användare $tFullName $tKey"
+            Write-Debug "New-ANCStudentUsers`: Ny användare $tGN $tMN $tSN $tKey"
             try {
-                New-ANCStudentUser -PCFullName $tFullName -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -FileServer $FileServer -WhatIf:$WhatIfPreference
+                New-ANCStudentUser -GivenName $tGN -MiddleName $tMN -Surname $tSN -IDKey $tKey -UserPrefix $UserPrefix -UserIdentifier $UserIdentifier -MailDomain $MailDomain -MailAttribute $MailAttribute -StudentOU $NewUserOU -UserScript $UserScript -UserFolderPath $UserFolderPath -FileServer $FileServer -WhatIf:$WhatIfPreference
             } catch [System.Management.Automation.RuntimeException] {
                 # Fel när användaren skulle skapas
                 Write-Debug "New-ANCStudentUsers`: Fel när användaren skulle skapas"
@@ -640,7 +645,9 @@ function New-ANCStudentUsers {
 function New-ANCStudentUser {
     [cmdletbinding(SupportsShouldProcess)]
     param(
-        [string][Parameter(Mandatory)]$PCFullName,
+        [string][Parameter(Mandatory)]$GivenName,
+        [string][Parameter()]$MiddleName,
+        [string][Parameter(Mandatory)]$Surname,
         [string][Parameter(Mandatory)]$IDKey,
         [string][Parameter(Mandatory)]$UserPrefix,
         [string][Parameter(Mandatory)]$UserIdentifier,
@@ -655,21 +662,19 @@ function New-ANCStudentUser {
     Write-Debug "New-ANCStudentUser`: Starting function..."
 
     $ADDomain = Get-ADDomain | Select-Object -ExpandProperty DNSRoot
-    $givenName = Get-PCGivenName -PCName $PCFullName
-    $SN = Get-PCSurName -PCName $PCFullName
-    $displayName = "$givenName $SN"
-    $username = New-ANCUserName -Prefix $UserPrefix -GivenName $givenName -SN $SN
+    $SN = Get-PCSurName -MiddleName $MiddleName -SurName $Surname
+    $displayName = "$GivenName $SN"
+    $username = New-ANCUserName -Prefix $UserPrefix -GivenName $GivenName -SN $SN
     Write-Debug "New-ANCStudentUser`: Got username $username"
     $UPN = "$username@$ADDomain"
     $usermail = "$username@$MailDomain"
-    #$userPwd='Arvika2022'
     $userPwd=$username
 
     Write-Debug "New-ANCStudentUser`: $username"
 
     try {
         if ( $PSCmdlet.ShouldProcess("Skapar användaren $username",$username,'Skapa användare') ) {
-            New-ADUser -SamAccountName $username -Name $username -DisplayName $displayName -GivenName $givenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
+            New-ADUser -SamAccountName $username -Name $username -DisplayName $displayName -GivenName $GivenName -Surname $SN -UserPrincipalName $UPN -Path $StudentOU -AccountPassword(ConvertTo-SecureString -AsPlainText $userPwd -Force ) -Enabled $True -ScriptPath $userScript -ChangePasswordAtLogon $True
         }
         
     } catch [System.ServiceModel.FaultException] {
@@ -1074,13 +1079,21 @@ function ConvertTo-ANCAlfaNumeric {
     return $myString
 }
 
+<#
+Funktionen skapar efternamnet baserat på mellannamn och efternamn från Edlevo
+#>
 function Get-PCSurName {
     [cmdletbinding()]
     param (
-        [string][Parameter(Mandatory)]$PCName
+        [string][Parameter()]$MiddleName,
+        [string][Parameter(Mandatory)]$SurName
     )
 
-    $SN = $PCName.Split(',')[0].Trim()
+    if ( $MiddleName ) {
+        $SN = "$Middlename $SurName".Trim()
+    } else {
+        $SN = "$SurName".Trim()
+    }
 
     return $SN
 
@@ -1102,10 +1115,7 @@ function Get-PCGivenName {
 
 Exporterar en lista som underlag för ANC:s ansvarsförbindelser
 Funktionen tar en lista från Vägledningscentrum som indata för att hämta personerna till listan
-Lsiatn innehåller bl a namn, användarnamn och lösenord
-Eftersom vissa personer har konton sen tidigare görs en kontroll för att se vilka som loggat in nyligen.
-De användarna får inte sina lösenord återställda och ska därför inte heller få ett
-utskrivet lösenord på ansvarsförbindelsen
+Listan innehåller bl a namn, användarnamn och lösenord
 Resultatet av kontrollen lagras i en fil som kan anges som indata
 
 #>
@@ -1115,23 +1125,11 @@ function Get-ANCUsersFromIDList {
         [string][Parameter(Mandatory)]$OldIDListPath,
         [string][Parameter(Mandatory)]$UserIdentifier,
         [string][Parameter(Mandatory)]$OldUserIdentifier,
-        [string][Parameter(Mandatory)]$OutFile,
-        [string][Parameter()]$RecentLoginsFile
+        [string][Parameter(Mandatory)]$OutFile
     )
 
     # Hämta lista med identifierare
     $OldIDList = Import-Csv -Path $OldIDListPath -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
-
-    $RecentLoginsDict = @{}
-
-    if ( $RecentLoginsFile ) {
-        # Läs in mailadresserna i filen till en dictionary
-        $recentLogins = Get-Content -Path $RecentLoginsFile | ConvertFrom-Csv -Delimiter ';'
-        foreach ( $login in $recentLogins ) {
-            $userMail = $login.mail
-            $RecentLoginsDict[$userMail] = 'recent'
-        }
-    }
 
     "$UserIdentifier;SN;givenName;sAMAccountName;displayName;password" | Out-File -FilePath $OutFile
 
@@ -1140,17 +1138,9 @@ function Get-ANCUsersFromIDList {
     foreach ( $OldID in $OldIDList ) {
         $UID = ConvertTo-IDKey12 -IDKey11 $OldID
         $ldapfilter = "($UserIdentifier=$UID)"
-        #Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
-        #Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes | Where-Object { -not $RecentLoginsDict.ContainsKey($_.extensionAttribute1) } | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
         $curUser = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
         $curUserMail = $curUser.extensionAttribute1
         $pwdString = $curUser.sAMAccountName
-        if ( $RecentLoginsDict.ContainsKey($curUsermail) ) {
-            # Användaren är en av dem som loggat in nyligen
-            # Ändra lösenordsvärdet till en text om att lösenordet
-            # redan är satt för användaren.
-            $pwdString = '<Samma lösen som tidigare>'
-        }
 
         # Skapa sträng med utdata
         $outstring = $curuser.$UserIdentifier + ';' +  $curUser.SN + ';' + $curUser.givenName + ';' + $curUser.sAMAccountName + ';' + $curUser.displayName + ';' + $pwdString
@@ -1225,6 +1215,51 @@ function Get-ANCAllUsers {
     $attributes = @($UserIdentifier;'sAMAccountName';'displayName';'SN';'givenName')
 
     Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | Select-Object -Property $attributes | Export-Csv -Delimiter ';' -LiteralPath $OutFile -Append
+}
+
+<#
+Funktionen hämtar underlag för användarlistor för ANC-kurser
+#>
+function Get-ANCLCUserList {
+    [cmdletbinding()]
+    param (
+        [Parameter(ParameterSetName='UserIDFile')][string]$UserIDFile,
+        [Parameter(ParameterSetName='UserIDFile')][string]$UserIdentifier,
+
+        [Parameter(ParameterSetName='OU')][string]$OU,
+
+        [Parameter(ParameterSetName='UserIDFile')]
+        [Parameter(ParameterSetName='OU')]
+        [string]$OutFolder = '.'
+
+    )
+
+    $now = Get-Date -Format 'yyyyMMdd_HHmm'
+
+    $outfile = "$OutFolder\LC_konton_$now.csv"
+
+    'displayName;userPrincipalName;sAMAccountName' | Out-File -FilePath $outfile -Encoding utf8
+
+    if ( $OU ) {
+        # Hämta användare baserat på OU
+        Get-ADUser -Filter * -SearchBase $OU -Properties displayName,userPrincipalName,sAMAccountName | ForEach-Object { $displayName = $_.displayName; $upn=$_.userPrincipalName;$sam=$_.sAMAccountName;$row="$displayName;$upn;$sam"; $row | Out-File -FilePath $outfile -Encoding utf8 -Append}
+    } elseif ( $UserIDFile ) {
+        # Hämta användare baserat på en ID-fil
+        $userIDList = Import-Csv -Path $UserIDFile -Delimiter ';' | Select-Object -ExpandProperty $UserIdentifier
+
+        foreach ( $userID in $userIDList) {
+            $userID12 = ConvertTo-IDKey12 -IDKey11 $userID
+            $ldapfilter = "($UserIdentifier=$userID12)"
+            Get-ADUser -LDAPFilter $ldapfilter -Properties displayName,userPrincipalName,sAMAccountName | ForEach-Object { $displayName = $_.displayName; $upn=$_.userPrincipalName;$sam=$_.sAMAccountName;$row="$displayName;$upn;$sam"; $row | Out-File -FilePath $outfile -Encoding utf8 -Append}
+        }
+
+    } else {
+
+        Write-warning "Funktionen Get-ANCLCUserList undrar: Hur i hela friden hamnade du här?"
+
+    }
+    
+
 }
 
 <#
@@ -1342,6 +1377,7 @@ function Get-ANCUserDocsList {
 #>
 
 Export-ModuleMember -Function Update-ANCVUXElever
+Export-ModuleMember -Function Get-ANCLCUserList
 
 #<#
 # Export av alla funktioner för testning
