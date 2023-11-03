@@ -38,7 +38,8 @@ Issue #255
 #>
 
 <#
-Funktionen skapar en CSV-fil med de aktuella användarna.
+Funktionen hämtar de aktuella användarna från det lokala directoryt
+och motsvarande användare från ett remote-directory.
 
 Datumen skapas t ex genom ((Get-Date).AddDays(<days>)).Date
 VIKTIGT: Ovanstående kommando fungerar
@@ -52,22 +53,67 @@ Attribut som behövs
 function Get-MIMStartNewUsers {
     [cmdletbinding()]
     param(
-        [Parameter(Mandatory)][DateTime]$FromTime,
-        [Parameter(Mandatory)][DateTime]$ToTime,
+        [Parameter(Mandatory)][DateTime]$FromDate,
+        [Parameter(Mandatory)][DateTime]$ToDate,
         [Parameter(Mandatory)][string]$UserIdentifier,
-        [Parameter()][string]$OutputFolder='.'
+        [Parameter(Mandatory)][string]$RemoteServer,
+        [Parameter(Mandatory)][pscredential]$RemoteCred
     )
-
-    $now = Get-Date -Format 'yyyyMMdd_HHmm'
-
-    $outfile = "$OutputFolder\NewMIMUsers_$now.csv"
-
-    "$UserIdentifier,mail" | Out-File -FilePath $outfile -Encoding utf8
 
     $attrs = @("$UserIdentifier",'mail')
 
-    Get-ADUser -Filter { (whenCreated -ge $FromTime) -and (whenCreated -le $ToTime) } -Properties $attrs | ForEach-Object { $curUserRow="$($_.$UserIdentifier);$($_.mail)";$curUserRow | Out-File -FilePath $outfile -Encoding utf8 -Append }
+    $localUsers = @{}
+    $remoteUsers = @{}
+
+    # Filtrerar bort användare utan personnummer
+    Get-ADUser -Filter { (whenCreated -ge $FromDate) -and (whenCreated -le $ToDate) -and ($UserIdentifier -like "*" ) } -Properties $attrs | ForEach-Object { $localUsers[$($_.$UserIdentifier)]=$($_.mail ); $numLocalUsers++ }
+
+    foreach ( $localKey in $localUsers.Keys ) {
+        $ldapfilter = "($UserIdentifier=$localKey)"
+        Get-ADUser -Server $RemoteServer -Credential $RemoteCred -LDAPFilter $ldapfilter -Properties $attrs | ForEach-Object { $remoteUsers[$($_.$UserIdentifier)]=$($_.mail ) }
+    }
+
+    $numLocalUsers = $localUsers.Count
+    $numRemoteUsers = $remoteUsers.Count
+
+    Write-Verbose "Found $numLocalUsers users in local Active Directory"
+    Write-Verbose "Found $numRemoteUsers users in remote Active Directory"
+
+    if ( $numRemoteUsers -gt 0 ) {
+        
+        New-MIMStartMigrationFile -UsersToMigrate $remoteUsers
+        
+        <#
+        # Demo av skrivning
+        foreach ( $remoteKey in $remoteUsers.Keys ) {
+            Write-Verbose "Hittad användare: $($remoteUsers[$remoteKey])"
+        }
+        #>
+    }
+
 }
+
+function New-MIMStartMigrationFile {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][hashtable]$UsersToMigrate,
+        [Parameter()][string]$OutputDirectory = '.'
+    )
+    
+
+    $now = Get-Date -Format 'yyyyMMdd_HHmm'
+    
+    $outfile = "$OutputDirectory\MIMStartMigrationFile_$now.csv"
+
+    # Behövs rubrikrad?
+    #'mail' | Out-File -FilePath $outfile -Encoding utf8
+
+    foreach ( $user in $UsersToMigrate ) {
+        $($user.Values)  | Out-File -FilePath $outfile -Encoding utf8 -Append
+    }
+
+}
+
 
 Export-ModuleMember -Function Get-SVUserData
 Export-ModuleMember -Function Get-MIMStartNewUsers
