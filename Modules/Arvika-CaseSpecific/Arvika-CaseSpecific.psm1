@@ -60,39 +60,49 @@ function Get-MIMStartNewUsers {
         [Parameter(Mandatory)][pscredential]$RemoteCred
     )
 
+    
+
     $attrs = @("$UserIdentifier",'mail')
 
     $localUsers = @{}
     $remoteUsers = @{}
 
-    # Filtrerar bort användare utan personnummer
-    Get-ADUser -Filter { (whenCreated -ge $FromDate) -and (whenCreated -le $ToDate) -and ($UserIdentifier -like "*" ) } -Properties $attrs | ForEach-Object { $localUsers[$($_.$UserIdentifier)]=$($_.mail ); $numLocalUsers++ }
+    # Filtrerar bort användare som saknar personnummer och/eller mailbox
+    Get-ADUser -Filter { (whenCreated -ge $FromDate) -and (whenCreated -le $ToDate) -and ($UserIdentifier -like "*" ) -and (mail -like "*") } -Properties $attrs | ForEach-Object { $localUsers[$($_.$UserIdentifier)]=$($_.mail ); $numLocalUsers++ }
 
     foreach ( $localKey in $localUsers.Keys ) {
         $ldapfilter = "($UserIdentifier=$localKey)"
         Get-ADUser -Server $RemoteServer -Credential $RemoteCred -LDAPFilter $ldapfilter -Properties $attrs | ForEach-Object { $remoteUsers[$($_.$UserIdentifier)]=$($_.mail ) }
     }
 
+    <#
     $numLocalUsers = $localUsers.Count
     $numRemoteUsers = $remoteUsers.Count
-
     Write-Verbose "Found $numLocalUsers users in local Active Directory"
     Write-Verbose "Found $numRemoteUsers users in remote Active Directory"
+    #>
 
-    if ( $numRemoteUsers -gt 0 ) {
+    Write-Verbose "Found $($localUsers.Count) users in local Active Directory"
+    Write-Verbose "Found $($remoteUsers.Count) users in remote Active Directory"
+
+    if ( $($remoteUsers.Count) -gt 0 ) {
         
+        # Exportera underlag för migrering
         New-MIMStartMigrationFile -UsersToMigrate $remoteUsers
+
+        # Exportera underlag för forwarding
+        New-MIMStartForwardingFile -LocalUsers $localUsers -RemoteUsers $remoteUsers
         
-        <#
-        # Demo av skrivning
-        foreach ( $remoteKey in $remoteUsers.Keys ) {
-            Write-Verbose "Hittad användare: $($remoteUsers[$remoteKey])"
-        }
-        #>
+        # Dölj mailboxarna
+        Set-MIMStartHideUsersFromGAL -LocalUsers $localUsers -RemoteUsers $remoteUsers
+
     }
 
 }
 
+<#
+Funktionen skapar en underlagsfil för migrering av mailboxar
+#>
 function New-MIMStartMigrationFile {
     [cmdletbinding()]
     param (
@@ -110,6 +120,51 @@ function New-MIMStartMigrationFile {
 
     foreach ( $user in $UsersToMigrate ) {
         $($user.Values)  | Out-File -FilePath $outfile -Encoding utf8 -Append
+    }
+
+}
+
+<#
+Funktionen döljer användare från adresslistor
+För alla användare i RemoteUsers döljs
+motsvarande användare från Localusers från
+adressböckerna
+#>
+function Set-MIMStartHideUsersFromGAL {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][hashtable]$LocalUsers,
+        [Parameter(Mandatory)][hashtable]$RemoteUsers
+    )
+
+    foreach ( $key in $RemoteUsers.Keys ) {
+        $ldapfilter="(mail=$($LocalUsers[$key]))"
+        Get-ADUser -LDAPFilter $ldapfilter | Set-ADUser -Replace @{msExchHideFromAddressLists=$true} -WhatIf
+    }
+
+}
+
+<#
+Funktionen skapar ett underlag för vidarebefordran från en Office 365-mailbox
+till en annan mail-adress
+#>
+function New-MIMStartForwardingFile {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][hashtable]$LocalUsers,
+        [Parameter(Mandatory)][hashtable]$RemoteUsers,
+        [Parameter()][string]$OutputDirectory = '.'
+    )
+
+    $now = Get-Date -Format 'yyyyMMdd_HHmm'
+
+    $outfile = "$OutputDirectory\MIMStartForwardingFile_$now.csv"
+
+    # Skapa rubrikrad
+    'O365Mail;ForwardToMail' | Out-File -FilePath $outfile -Encoding utf8
+
+    foreach ( $key in $RemoteUsers.Keys ) {
+        "$($LocalUsers[$key]);$($RemoteUsers[$key])" | Out-File -FilePath $outfile -Encoding utf8 -Append
     }
 
 }
