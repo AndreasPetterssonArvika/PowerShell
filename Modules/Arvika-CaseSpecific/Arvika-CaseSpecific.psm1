@@ -41,6 +41,9 @@ Issue #255
 Funktionen hämtar de aktuella användarna från det lokala directoryt
 och motsvarande användare från ett remote-directory.
 
+Genomgående är miljön där användarna med mailboxar skapas den lokala miljön
+medan den motsvarande skolmiljö är remote.
+
 Datumen skapas t ex genom ((Get-Date).AddDays(<days>)).Date
 VIKTIGT: Ovanstående kommando fungerar
 ((Get-Date).AddDays(<days>)).DateTime fungerar inte. Det kommandot lämnar ifrån sig en
@@ -51,7 +54,7 @@ Attribut som behövs
 - mail
 #>
 function Get-MIMStartNewUsers {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)][DateTime]$FromDate,
         [Parameter(Mandatory)][DateTime]$ToDate,
@@ -60,41 +63,36 @@ function Get-MIMStartNewUsers {
         [Parameter(Mandatory)][pscredential]$RemoteCred
     )
 
-    
-
+    # Attributen som ska hämtas utöver standardattribut
     $attrs = @("$UserIdentifier",'mail')
 
+    # Hashtables för användare
     $localUsers = @{}
     $remoteUsers = @{}
 
+    # Hämtar användare skapade i det definierade tidsintervallet
     # Filtrerar bort användare som saknar personnummer och/eller mailbox
-    Get-ADUser -Filter { (whenCreated -ge $FromDate) -and (whenCreated -le $ToDate) -and ($UserIdentifier -like "*" ) -and (mail -like "*") } -Properties $attrs | ForEach-Object { $localUsers[$($_.$UserIdentifier)]=$($_.mail ); $numLocalUsers++ }
+    Get-ADUser -Filter { (whenCreated -ge $FromDate) -and (whenCreated -le $ToDate) -and ($UserIdentifier -like "*" ) -and (mail -like "*") -and (info -like "IDM Managed*") } -Properties $attrs | ForEach-Object { $localUsers[$($_.$UserIdentifier)]=$($_.mail ); $numLocalUsers++ }
 
     foreach ( $localKey in $localUsers.Keys ) {
         $ldapfilter = "($UserIdentifier=$localKey)"
         Get-ADUser -Server $RemoteServer -Credential $RemoteCred -LDAPFilter $ldapfilter -Properties $attrs | ForEach-Object { $remoteUsers[$($_.$UserIdentifier)]=$($_.mail ) }
     }
 
-    <#
-    $numLocalUsers = $localUsers.Count
-    $numRemoteUsers = $remoteUsers.Count
-    Write-Verbose "Found $numLocalUsers users in local Active Directory"
-    Write-Verbose "Found $numRemoteUsers users in remote Active Directory"
-    #>
-
-    Write-Verbose "Found $($localUsers.Count) users in local Active Directory"
-    Write-Verbose "Found $($remoteUsers.Count) users in remote Active Directory"
+    Write-Output "Hittade $($localUsers.Count) nya användare i lokala Active Directory"
+    Write-Output "Hittade $($remoteUsers.Count) nya användare i remote Active Directory"
+    Write-Output "Hittade $($localUsers.Count - $remoteUsers.Count) nya användare som enbart finns i lokalt Active Directory"
 
     if ( $($remoteUsers.Count) -gt 0 ) {
         
         # Exportera underlag för migrering
-        New-MIMStartMigrationFile -UsersToMigrate $remoteUsers
+        New-MIMStartMigrationFile -LocalUsers $localUsers -RemoteUsers $remoteUsers
 
         # Exportera underlag för forwarding
         New-MIMStartForwardingFile -LocalUsers $localUsers -RemoteUsers $remoteUsers
         
         # Dölj mailboxarna
-        Set-MIMStartHideUsersFromGAL -LocalUsers $localUsers -RemoteUsers $remoteUsers
+        Set-MIMStartHideUsersFromGAL -LocalUsers $localUsers -RemoteUsers $remoteUsers -WhatIf:$WhatIfPreference
 
     }
 
@@ -102,11 +100,15 @@ function Get-MIMStartNewUsers {
 
 <#
 Funktionen skapar en underlagsfil för migrering av mailboxar
+Filen ska vara en CSV-fil och kolumnen "EmailAddress" är den enda som krävs
+Filen hämtar alla nycklar ur remoteUsers och slår upp motsvarande epost-adresser
+ur localUsers som underlag för migrering
 #>
 function New-MIMStartMigrationFile {
     [cmdletbinding()]
     param (
-        [Parameter(Mandatory)][hashtable]$UsersToMigrate,
+        [Parameter(Mandatory)][hashtable]$LocalUsers,
+        [Parameter(Mandatory)][hashtable]$RemoteUsers,
         [Parameter()][string]$OutputDirectory = '.'
     )
     
@@ -116,10 +118,10 @@ function New-MIMStartMigrationFile {
     $outfile = "$OutputDirectory\MIMStartMigrationFile_$now.csv"
 
     # Behövs rubrikrad?
-    #'mail' | Out-File -FilePath $outfile -Encoding utf8
+    'EmailAddress' | Out-File -FilePath $outfile -Encoding utf8
 
-    foreach ( $user in $UsersToMigrate ) {
-        $($user.Values)  | Out-File -FilePath $outfile -Encoding utf8 -Append
+    foreach ( $key in $remoteUsers.Keys ) {
+        $localUsers[$key]  | Out-File -FilePath $outfile -Encoding utf8 -Append
     }
 
 }
@@ -131,7 +133,7 @@ motsvarande användare från Localusers från
 adressböckerna
 #>
 function Set-MIMStartHideUsersFromGAL {
-    [cmdletbinding()]
+    [cmdletbinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)][hashtable]$LocalUsers,
         [Parameter(Mandatory)][hashtable]$RemoteUsers
@@ -139,7 +141,9 @@ function Set-MIMStartHideUsersFromGAL {
 
     foreach ( $key in $RemoteUsers.Keys ) {
         $ldapfilter="(mail=$($LocalUsers[$key]))"
-        Get-ADUser -LDAPFilter $ldapfilter | Set-ADUser -Replace @{msExchHideFromAddressLists=$true} -WhatIf
+        if($PSCmdlet.ShouldProcess($ldapfilter)) {
+            Get-ADUser -LDAPFilter $ldapfilter | Set-ADUser -Replace @{msExchHideFromAddressLists=$true}
+        }
     }
 
 }
@@ -160,8 +164,8 @@ function New-MIMStartForwardingFile {
 
     $outfile = "$OutputDirectory\MIMStartForwardingFile_$now.csv"
 
-    # Skapa rubrikrad
-    'O365Mail;ForwardToMail' | Out-File -FilePath $outfile -Encoding utf8
+    # Skapa rubrikrad. Kolumnrubrikerna är de som förvänats i Set-MIMStartForwarding
+    'MailboxAddress;ForwardToAddress' | Out-File -FilePath $outfile -Encoding utf8
 
     foreach ( $key in $RemoteUsers.Keys ) {
         "$($LocalUsers[$key]);$($RemoteUsers[$key])" | Out-File -FilePath $outfile -Encoding utf8 -Append
@@ -169,6 +173,63 @@ function New-MIMStartForwardingFile {
 
 }
 
+<#
+Funktionen lägger till användare i grupper för licenstilldelning
+och forwarding.
+Här fungerar det bra med filen som är underlag för migreringen.
+#>
+function Add-MIMStartUsersToGroups {
+    [cmdletbinding(SupportsShouldProcess)]
+    param (
+        [Parameter(Mandatory)][string]$LicenseGroupName,
+        [Parameter(Mandatory)][string]$ForwardGroupName,
+        [Parameter(Mandatory)][string]$UserMigrationFile
+    )
+
+    $userRows = Import-Csv -Delimiter ';' -Encoding utf8 -Path $UserMigrationFile | Select-Object -ExpandProperty 'EmailAddress'
+
+    foreach ( $user in $userRows ) {
+        $ldapfilter="(mail=$user)"
+        $curUser = Get-ADUser -LDAPFilter $ldapfilter
+        if($PSCmdlet.ShouldProcess($($curUser.Name))) {
+            $curUser | Add-ADPrincipalGroupMembership -MemberOf $LicenseGroupName
+            $curUser | Add-ADPrincipalGroupMembership -MemberOf $ForwardGroupName
+        }
+    }
+}
+
+<#
+Funktionen sätter forwarding för mailboxarna i filen
+
+Funktionen kräver att kopplingen till Exchange Online redan är gjord
+Connect-ExchangeOnline på dator som har PSModulen installerad
+
+Filen ska vara semikolonseparerad textfil och måste innehålla två kolumner (det går att ha fler)
+Kolumnerna som krävs är:
+- MailboxAddress
+- ForwardToAddress
+
+För varje användare ska mailadressen finnas
+#>
+function Set-MIMStartForwarding {
+    [cmdletbinding(SupportsShouldProcess)]
+    param (
+        [Parameter(Mandatory)][string]$ForwardingFile
+    )
+
+    $forwardingRows = Import-Csv -Delimiter ';' -Encoding utf8 -Path $ForwardingFile
+
+    foreach ( $row in $forwardingRows ) {
+        $mailbox=$row.MailboxAddress
+        $forwardingAddress = $row.ForwardToAddress
+        if ($PSCmdlet.ShouldProcess("Forwarding $mailbox to $forwardingAddress",$mailbox,'forward')) {
+            Set-Mailbox -Identity $mailbox -ForwardingSmtpAddress $forwardingAddress -DeliverToMailboxAndForward $false
+        }
+    }
+}
+
 
 Export-ModuleMember -Function Get-SVUserData
 Export-ModuleMember -Function Get-MIMStartNewUsers
+Export-ModuleMember -Function Set-MIMStartForwarding
+Export-ModuleMember -Function Add-MIMStartUsersToGroups
