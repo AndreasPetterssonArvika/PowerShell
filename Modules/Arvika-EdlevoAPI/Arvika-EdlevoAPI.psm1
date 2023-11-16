@@ -140,9 +140,9 @@ function Update-EdlevoEmailFromActiveDirectory {
     )
 
     # Kontrollera att sökbegrepp angivits
-    if ( (-not $SearchBase) -and ( -not $LDAPFilter) ) {
-        # Inget sökbegrepp angivet
-        throw 'Inga sökbegrepp angivna. Ange minst ett av SearchBase eller LDAPFilter'
+    if ( (-not $SearchBase) -or ( -not $LDAPFilter) ) {
+        # Saknar sökbegrepp
+        throw 'Funktionen kräver både SearchBase och LDAPFilter, kontrollera indata'
     }
 
     if ( $DaysSinceUserChange -gt 0 ) {
