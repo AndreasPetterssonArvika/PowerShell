@@ -131,7 +131,6 @@ function Update-EdlevoEmailFromActiveDirectory {
         [Parameter(ParameterSetName='RemoteDirectory',Mandatory=$False)][switch]$RemoteDirectory=$False,
         [Parameter(ParameterSetName='RemoteDirectory',Mandatory=$True)][string]$RemoteServer,
         [Parameter(ParameterSetName='RemoteDirectory',Mandatory=$True)][pscredential]$RemoteCredential,
-        #[Parameter(Mandatory)][string]$EdlevoAPILicenseKey,
         [Parameter(Mandatory)][string]$EdlevoAPIURI,
         [Parameter()][string]$SearchBase,
         [Parameter()][string]$LDAPFilter,
@@ -208,10 +207,10 @@ function Get-EdlevoMailUpdateFromActiveDirectory {
 
     if ( $RemoteDirectory ) {
         Write-Debug "Hämtar från remote AD"
-        Get-ADUser -LDAPFilter $Ldapfilter -Properties $UserProps -Server $RemoteServer -Credential $RemoteCredential | ForEach-Object { $UserData[$_.$UserIdentifier] = $_.$MailAttribute }
+        Get-ADUser -LDAPFilter $Ldapfilter -SearchBase $SearchBase -Properties $UserProps -Server $RemoteServer -Credential $RemoteCredential | ForEach-Object { $UserData[$_.$UserIdentifier] = $_.$MailAttribute }
     } else {
         Write-Debug "Hämtar från lokalt AD"
-        Get-ADUser -LDAPFilter $Ldapfilter -Properties $UserProps | ForEach-Object { $UserData[$_.$UserIdentifier] = $_.$MailAttribute }
+        Get-ADUser -LDAPFilter $Ldapfilter -SearchBase $SearchBase -Properties $UserProps | ForEach-Object { $UserData[$_.$UserIdentifier] = $_.$MailAttribute }
     }
 
     return $UserData
