@@ -113,6 +113,25 @@ function Get-EdlevoOrganizationStaff {
 }
 
 <#
+#>
+function UpdateEdlevoEmailUsingConfigFile {
+    [cmdletbinding(SupportsShouldProcess)]
+    param (
+        [Parameter(Mandatory)][string]$ConfigFile
+    )
+
+    $config = Get-Content -Path $ConfigFile -Encoding utf8 | ConvertFrom-Json
+
+    $EdlevoAPIURI = New-EdlevoURI -BaseDomain $config.EdlevoAPI.Domain -APIEndpoint $config.EdlevoAPI.EndPoint -LicenseKey $config.EdlevoAPI.LicenseKey
+
+    foreach ( $directory in $config.ActiveDirectory ) {
+        if ( $directory.RemoteServer) {
+            
+        }
+    }
+}
+
+<#
 Funktionen hämtar uppgifter från Active Directory och 
 uppdaterar motsvarande epost-adresser i Edlevo.
 
@@ -166,6 +185,10 @@ function Update-EdlevoEmailFromActiveDirectory {
         Write-Debug "Hittade $numUsers ändrade de senaste $DaysSinceUserChange dagarna"
     }
 
+    $updateSucceeded = $True
+
+    $failedUpdates = @{}
+
     # Loopa igenom alla användare och uppdatera epost-adressen
     foreach ( $key in $userdata.Keys ) {
         [xml]$curEmailXML = New-EdlevoPersonEmailXML -UserIdentifier $key -mailAddress $($userData[$key]) -Verbose
@@ -178,8 +201,23 @@ function Update-EdlevoEmailFromActiveDirectory {
                 # Statuskoden säger att det inte gick bra. Meddela.
                 Write-Output "Skapa bättre feedback här!"
                 Write-Output "Fel för $key $($userData[$key])"
+                $updateSucceeded = $False
+                $failedUpdates[$key] = $($userData[$key])
             }
         }
+    }
+
+    if ( $updateSucceeded ) {
+        # Uppdateringen lyckades utan problem
+        # Rapportera vid Verbose
+    } else {
+        # Uppdateringen av minst en epost-adress misslyckades
+
+        # Skriv fil med de användare som inte uppdaterades korrekt
+        # funktion här
+
+        # Maila helpdesk
+
     }
 }
 
