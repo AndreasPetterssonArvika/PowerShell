@@ -113,8 +113,9 @@ function Get-EdlevoOrganizationStaff {
 }
 
 <#
+Funktionen skriver tillbaka epost-adresser till Edlevo baserat på en konfig-fil
 #>
-function UpdateEdlevoEmailUsingConfigFile {
+function Update-EdlevoEmailUsingConfigFile {
     [cmdletbinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)][string]$ConfigFile
@@ -124,9 +125,48 @@ function UpdateEdlevoEmailUsingConfigFile {
 
     $EdlevoAPIURI = New-EdlevoURI -BaseDomain $config.EdlevoAPI.Domain -APIEndpoint $config.EdlevoAPI.EndPoint -LicenseKey $config.EdlevoAPI.LicenseKey
 
+    $BaseConfigSplat = @{
+        EdlevoConfigName = $config.EdlevoConfigName
+        EdlevoAPIURI = $EdlevoAPIURI
+        OutputDirectory = $config.EdlevoOutputDirectory
+    }
+
+    # Skapa splat för epost
+    $MailSplat = @{
+        SmtpServer = $config.Email.SmtpServer
+        FromMail = $config.Email.From
+        ToMail = $config.Email.To
+    }
+
     foreach ( $directory in $config.ActiveDirectory ) {
+
+        # Skapa splat för remote om det behövs
         if ( $directory.RemoteServer) {
+            $RemoteCredential = Get-Credential
+            $RemoteSplat = @{
+                RemoteDirectory = $True
+                RemoteServer=$directory.RemoteServer
+                RemoteCredential=$RemoteCredential
+            }
+        } else {
+            $RemoteSplat = @{
+                RemoteDirectory=$False
+            }
+        }
+
+        # Skapa splat för varje sökning och gör en uppdatering
+        foreach ( $search in $directory.Searches ) {
             
+            $UpdateSplat = @{
+                SearchName = $search.SearchName
+                SearchBase = $search.SearchBase
+                LDAPFilter = $search.LDAPFilter
+                UserIdentifier = $directory.UserIdentifier
+                MailAttribute = $directory.MailAttribute
+                DaysSinceUserChange = 1
+            }
+
+            Update-EdlevoEmailFromActiveDirectory @BaseConfigSplat @UpdateSplat @RemoteSplat @MailSplat -WhatIf:$WhatIfPreference
         }
     }
 }
@@ -147,10 +187,16 @@ Om parametern DaysSinceUserChange sätts till 0 begränsas inte uppslaget i tid,
 function Update-EdlevoEmailFromActiveDirectory {
     [cmdletbinding(SupportsShouldProcess,DefaultParameterSetName='LocalDirectory')]
     param (
+        [Parameter()][String]$EdlevoConfigName='ManualConfig',
+        [Parameter(Mandatory)][string]$EdlevoAPIURI,    
+        [Parameter()][string]$SmtpServer,
+        [Parameter()][String]$FromMail,
+        [Parameter()][String]$ToMail,
+        [Parameter()][string]$OutputDirectory,
         [Parameter(ParameterSetName='RemoteDirectory',Mandatory=$False)][switch]$RemoteDirectory=$False,
         [Parameter(ParameterSetName='RemoteDirectory',Mandatory=$True)][string]$RemoteServer,
         [Parameter(ParameterSetName='RemoteDirectory',Mandatory=$True)][pscredential]$RemoteCredential,
-        [Parameter(Mandatory)][string]$EdlevoAPIURI,
+        [Parameter()][string]$SearchName='ManualSearch',
         [Parameter()][string]$SearchBase,
         [Parameter()][string]$LDAPFilter,
         [Parameter(Mandatory=$True)][string]$UserIdentifier,
@@ -199,8 +245,8 @@ function Update-EdlevoEmailFromActiveDirectory {
                 # Gick bra, gör inget
             } else {
                 # Statuskoden säger att det inte gick bra. Meddela.
-                Write-Output "Skapa bättre feedback här!"
-                Write-Output "Fel för $key $($userData[$key])"
+                Write-Debug "Skapa bättre feedback här!"
+                Write-Debug "Fel för $key $($userData[$key])"
                 $updateSucceeded = $False
                 $failedUpdates[$key] = $($userData[$key])
             }
@@ -210,13 +256,16 @@ function Update-EdlevoEmailFromActiveDirectory {
     if ( $updateSucceeded ) {
         # Uppdateringen lyckades utan problem
         # Rapportera vid Verbose
+        Write-Verbose 'Uppdatering genomförd'
     } else {
         # Uppdateringen av minst en epost-adress misslyckades
 
         # Skriv fil med de användare som inte uppdaterades korrekt
         # funktion här
+        New-FailedUpdateFile -FailedUpdates $failedUpdates -OutputDirectory $OutputDirectory -UserIdentifier $UserIdentifier -MailAttribute $MailAttribute -EdlevoConfigName $EdlevoConfigName -SearchName $SearchName
 
         # Maila helpdesk
+        #Send-MailMessage -SmtpServer $SmtpServer -From $FromMail -To $ToMail -Subject 'Uppdateringen misslyckades' -Body 'Minst ett fel uppstod vid återskrivning av epost-adresser mot Edlevo' -Encoding utf8
 
     }
 }
@@ -301,10 +350,6 @@ function New-EdlevoURI {
         [Parameter(Mandatory=$True)][string]$LicenseKey
     )
 
-    #$basedomain='eduint.arvika.se'
-
-    #$apiEndpoint='Person/v4/Person/UpdateContactInformation'
-
     $uri = 'https://' + $BaseDomain + '/WE.Education.Integration.Host.Proxy/LES/' + $APIEndpoint + '?LicenseKey=' + $LicenseKey
 
     return $uri
@@ -335,10 +380,40 @@ function Send-PersonEmailXML {
     }
 }
 
+<#
+Funktionen skriver de användare som inte kunde uppdateras till fil.
+#>
+function New-FailedUpdateFile {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$EdlevoConfigName,
+        [Parameter(Mandatory)][string]$SearchName,
+        [Parameter(Mandatory)][hashtable]$FailedUpdates,
+        [parameter(Mandatory)][string]$OutputDirectory,
+        [parameter(Mandatory)][string]$UserIdentifier,
+        [parameter()][string]$MailAttribute
+    )
+
+    $now = Get-Date -Format 'yyyyMMdd_HHmm'
+
+    $outfile = "FailedUpdates_" + $EdlevoConfigName + "_" + $SearchName + "_" + $now + ".csv"
+
+    $OutPath = "$OutputDirectory\$outfile"
+
+    # Skriv rubriker till filen
+    "$UserIdentifier;$MailAttribute" | Out-File -FilePath $OutPath -Encoding utf8
+
+    # Skriv en rad i filen för varje misslyckad uppdatering
+    foreach ( $key in $FailedUpdates.Keys ) {
+        "$key;$($FailedUpdates[$key])" | Out-File -FilePath $OutPath -Encoding utf8 -Append
+    }
+}
+
 Export-ModuleMember -Function Get-EdlevoPerson
 Export-ModuleMember -Function Get-EdlevoPersonFromFile
 Export-ModuleMember -Function Get-EdlevoOrganization
 Export-ModuleMember -Function Get-EdlevoOrganizationStaff
+Export-ModuleMember -Function Update-EdlevoEmailUsingConfigFile
 Export-ModuleMember -Function Update-EdlevoEmailFromActiveDirectory
 Export-ModuleMember -Function Get-EdlevoMailUpdateFromActiveDirectory
 Export-ModuleMember -Function New-EdlevoURI
