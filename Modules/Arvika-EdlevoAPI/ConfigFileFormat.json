@@ -1,0 +1,50 @@
+{
+    "EdlevoConfigName": "<descriptive name>",
+    "EdlevoConfigDescription": "<Text description of config>",
+    "EdlevoOutputDirectory": "<path to file output>",
+    "EdlevoAPI": {
+        "Server": "<API Server>",
+        "EndPoint": "<Edlevo API Endpoint>",
+        "LicenseKey": "<license key>"
+    },
+    "Email": {
+        "SmtpServer": "<smtp server>",
+        "From": "<from email address>",
+        "To": "<to email address>"
+    },
+    "ActiveDirectory": [
+        {
+            "Directory": "<Descriptive name of directory 1>",
+            "RemoteServer": "<Remote server 1 if necessary>",
+            "UserIdentifier": "<User identifier attribute>",
+            "MailAttribute": "<mail address attribute>",
+            "Searches": [
+                {
+                    "SearchName": "<Descriptive name 1>",
+                    "SearchBase": "<Search base 1>",
+                    "LDAPFilter": "<LDAP filter 1>"
+                },{
+                    "SearchName": "<Descriptive name 2>",
+                    "SearchBase": "<Search base 2>",
+                    "LDAPFilter": "<LDAP filter 2>"
+                }
+            ]
+        },{
+            "Directory": "<Descriptive name of directory 2>",
+            "RemoteServer": "<Remote server 2 if necessary>",
+            "UserIdentifier": "<User identifier attribute>",
+            "MailAttribute": "<mail address attribute>",
+            "Searches": [
+                {
+                    "SearchName": "<Descriptive name 1>",
+                    "SearchBase": "<Search base 1>",
+                    "LDAPFilter": "<LDAP filter 1>"
+                },{
+                    "SearchName": "<Descriptive name 2>",
+                    "SearchBase": "<Search base 2>",
+                    "LDAPFilter": "<LDAP filter 2>"
+                }
+            ]
+        }
+    ]
+}
