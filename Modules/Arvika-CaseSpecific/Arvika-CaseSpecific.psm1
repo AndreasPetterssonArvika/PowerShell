@@ -229,7 +229,144 @@ function Set-MIMStartForwarding {
 }
 
 
+<#
+Funktionen uppdaterar användares homeDirectories som har namn som inte matchar sAMAccountName
+#>
+function Update-MIMStartUserHomeDirectories {
+    [cmdletbinding(SupportsShouldProcess)]
+    param (
+        [Parameter()][string]$PathFilter
+    )
+
+    # Hämta användare med homeDirectory som inte matcha sAMAccountname
+    $users = Get-MIMStartUsersWithHomedirMismatch -HomeDirectoryFilter $PathFilter
+
+    # Testa den befintliga och den nya sökvägen för problem och genomför ändringarna för de användare som passear testet
+    $users | Test-MIMStartHomeDirectoryPaths | Update-MIMStartCheckedUserHomeDirectories -WhatIf:$WhatIfPreference
+
+}
+
+function Get-MIMStartUsersWithHomedirMismatch {
+    [cmdletbinding()]
+    param (
+        [Parameter()][string]$HomeDirectoryFilter
+    )
+    
+    Get-ADUser -Filter { homeDirectory -like $HomeDirectoryFilter } -Properties homeDirectory | Select-Object -Property sAMAccountName,homeDirectory | ForEach-Object { $folderName = $_.homeDirectory.split('\')[-1]; if ( $_.sAMAccountName -ne $folderName ) { Write-Output $_ } }
+    
+
+}
+
+function Test-MIMStartHomeDirectoryPaths {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)][Microsoft.ActiveDirectory.Management.ADAccount]$InputUser
+    )
+
+    begin {
+        # Sätt upp utdatafil
+        $now = Get-Date -Format 'yyyyMMdd_HHmm'
+        $outfile = ".\TestOfMIMDirectories_$now.txt"
+        'Loggfil för test av sökvägar' | Out-File -FilePath $outfile -Encoding utf8 -WhatIf:$false
+    }
+
+    process {
+        # Hämta aktuell användare med homeDirectory
+        # Skapa variabler för läsbarhet
+        [string]$CurrentUserName = $InputUser.SamAccountName
+        [string]$CurrentFolder = Get-ADUser -Identity $CurrentUserName -Properties homeDirectory | Select-Object -ExpandProperty homeDirectory
+
+        # Kontrollera nuvarande sökväg 
+        If ( Test-Path ( $CurrentFolder ) ) {
+
+            # Sökvägen finns, skapa ny mappsökväg och kontrollera om den finns
+            Write-Debug "Test-MIMStartHomeDirectoryPaths: $CurrentFolder"
+            $newPath = $CurrentFolder.Substring(0,$CurrentFolder.LastIndexOf('\')) + '\' + $CurrentUserName
+
+            if ( Test-Path ( $newPath ) ) {
+
+                # Nya sökvägen finns redan, logga till fil
+                $CurrentOutput = "Ny sökväg finns: $newPath"
+                Write-Debug $CurrentOutput
+                $CurrentOutput | Out-File -FilePath $outfile -Encoding utf8 -Append -WhatIf:$false
+
+            } else {
+
+                # Skicka användaren vidare på pipeline
+                Write-Output $InputUser
+
+            }
+
+        } else {
+
+            # Sökvägen saknas, logga till fil
+            $CurrentOutput = "Befintlig sökväg saknas: $CurrentFolder"
+            Write-Debug $CurrentOutput
+            $CurrentOutput | Out-File -FilePath $outfile -Encoding utf8 -Append -WhatIf:$false
+
+        }
+    }
+
+    end {}
+
+}
+
+function Update-MIMStartCheckedUserHomeDirectories {
+    [cmdletbinding(SupportsShouldProcess)]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)][Microsoft.ActiveDirectory.Management.ADAccount]$InputUser
+    )
+
+    begin {
+        # Sätt upp utdatafil
+        $now = Get-Date -Format 'yyyyMMdd_HHmm'
+        $outfile = ".\ChangesOfMIMDirectories_$now.txt"
+        'sAMAccountName;oldDirectorypath;newDirectoryPath' | Out-File -FilePath $outfile -Encoding utf8 -WhatIf:$false
+    }
+
+    process {
+
+        # Hämta aktuell användare och relaterade textsträngar
+        [string]$CurrentUserName=$InputUser.sAMAccountName
+        $CurrentUser = Get-ADUser -Identity $CurrentUserName -Properties homeDirectory
+        [string]$CurrentDirectory=$CurrentUser.homeDirectory
+        Write-Debug "Update-MIMStartCheckedUserHomeDirectories: $CurrentDirectory"
+        [string]$NewDirectoryPath = $CurrentDirectory.Substring(0,$CurrentDirectory.LastIndexOf('\')) + '\' + $CurrentUserName
+        
+        # Logga till fil
+        $CurrentOutput = "$CurrentUserName;$CurrentDirectory;$NewDirectorypath"
+        Write-Debug $CurrentOutput
+        $CurrentOutput | Out-File -FilePath $outfile -Encoding utf8 -Append -WhatIf:$false
+
+        # Gör ändringen
+        Update-MIMStartHomeDirectory -CurrentPath $CurrentDirectory -NewPath $NewDirectoryPath -SAMAccountName $CurrentUserName -WhatIf:$WhatIfPreference
+
+    }
+
+    end {}
+
+}
+
+function Update-MIMStartHomeDirectory {
+    [cmdletbinding(SupportsShouldProcess)]
+    param (
+        [Parameter(mandatory)][string]$CurrentPath,
+        [Parameter(Mandatory)][string]$NewPath,
+        [Parameter(Mandatory)][string]$SAMAccountName
+    )
+
+    if ( $PSCmdlet.ShouldProcess($CurrentPath) ) {
+        Rename-Item -Path $CurrentPath -NewName $NewPath
+    }
+
+    if ( $PSCmdlet.ShouldProcess( $SAMAccountName) ) {
+        Set-ADUser -Identity $SAMAccountName -Replace @{homeDirectory=$newPath}
+    }
+
+}
+
 Export-ModuleMember -Function Get-SVUserData
 Export-ModuleMember -Function Get-MIMStartNewUsers
 Export-ModuleMember -Function Set-MIMStartForwarding
 Export-ModuleMember -Function Add-MIMStartUsersToGroups
+Export-ModuleMember -Function Update-MIMStartUserHomeDirectories
