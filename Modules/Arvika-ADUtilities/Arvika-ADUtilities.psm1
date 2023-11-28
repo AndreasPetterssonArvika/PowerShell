@@ -409,6 +409,32 @@ function Get-ImmutableIDForUser {
 
 }
 
+<#
+Funktionen hämtar unika managers ur Active Directory
+Managers är de användare som står som manager för minst en annan användare
+#>
+function Get-UniqueADManagers {
+    [cmdletbinding()]
+    param (
+        [Parameter()][string]$SearchBase = (Get-ADRootDSE).defaultNamingContext,
+        [Parameter()][string]$LDAPFilter = '(objectClass=user)'
+    )
+
+    # Sätt SearchBase till domänroten om parametern inte är explicit angiven
+
+    # Hashtable för managers
+    $UniqueManagers = @{}
+
+    # Utöka LDAP-filter att bara ta användare med Managers
+    $LDAPFilter = "(&($LDAPFilter)(manager=*))"
+    
+    # Hämta alla användare och lägg till manager
+
+    Get-ADUser -SearchBase $SearchBase -LDAPFilter $LDAPFilter -Properties manager | ForEach-Object { $UniqueManagers[$($_.manager)]='manager' }
+
+    return $UniqueManagers
+
+}
 
 
 Export-ModuleMember Copy-ADAttributesFromUser
@@ -422,3 +448,4 @@ Export-ModuleMember Import-ADGroupMembersFromTextfile
 Export-ModuleMember Find-ADUsersWithOldOrNoLastLogons
 Export-ModuleMember Compare-HashtableKeys
 Export-ModuleMember Get-ImmutableIDForUser
+Export-ModuleMember Get-UniqueADManagers
