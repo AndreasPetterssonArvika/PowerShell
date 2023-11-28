@@ -114,11 +114,13 @@ function Get-EdlevoOrganizationStaff {
 
 <#
 Funktionen skriver tillbaka epost-adresser till Edlevo baserat på en konfig-fil
+Funktionen exponerar även DaysSinceUserChange för att kunna göra mer godtyckliga slagningar vid behov
 #>
 function Update-EdlevoEmailUsingConfigFile {
     [cmdletbinding(SupportsShouldProcess)]
     param (
-        [Parameter(Mandatory)][string]$ConfigFile
+        [Parameter(Mandatory)][string]$ConfigFile,
+        [Parameter()][string]$DaysSinceUserChange=1
     )
 
     $config = Get-Content -Path $ConfigFile -Encoding utf8 | ConvertFrom-Json
@@ -163,7 +165,7 @@ function Update-EdlevoEmailUsingConfigFile {
                 LDAPFilter = $search.LDAPFilter
                 UserIdentifier = $directory.UserIdentifier
                 MailAttribute = $directory.MailAttribute
-                DaysSinceUserChange = 1
+                DaysSinceUserChange = $DaysSinceUserChange
             }
 
             Update-EdlevoEmailFromActiveDirectory @BaseConfigSplat @UpdateSplat @RemoteSplat @MailSplat -WhatIf:$WhatIfPreference
