@@ -1194,11 +1194,11 @@ function Get-ANCGSEUsers {
         [string][Parameter(Mandatory)]$OutFile
     )
 
-    'sAMAccountName;displayName;SN;givenName;extensionAttribute1' | Out-File -FilePath $OutFile
+    'sAMAccountName;displayName;SN;givenName' | Out-File -FilePath $OutFile
 
-    $attributes = @('sAMAccountName';'displayName';'SN';'givenName','extensionAttribute1')
+    $attributes = @('sAMAccountName';'displayName';'SN';'givenName')
 
-    Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | ForEach-Object { $SAM=$_.sAMAccountName;$disp=$_.displayName;$SN=$_.SN;$GN=$_.givenName;$mail=$_.extensionAttribute1;"$SAM;$disp;$SN;$GN;$mail" } | Out-File -FilePath $OutFile -Append -Encoding utf8
+    Get-ADUser -Filter * -SearchBase $BaseOU -Properties $attributes | ForEach-Object { $SAM=$_.sAMAccountName;$disp=$_.displayName;$SN=$_.SN;$GN=$_.givenName;"$SAM;$disp;$SN;$GN" } | Out-File -FilePath $OutFile -Append -Encoding utf8
 
 }
 
