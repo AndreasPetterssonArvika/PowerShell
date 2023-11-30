@@ -437,7 +437,7 @@ function Get-UniqueADManagers {
 }
 
 <#
-Funktionen sätter eduPersonPrincipalName för en användare.
+Funktionen sätter eduPersonPrincipalName (EPPN) för en användare.
 Värdet baseras på Active Directory-användarens ObjectGuid och
 domänens DNS-namn
 #>
@@ -448,15 +448,23 @@ function New-ADEPPNForADUser {
     )
 
     begin {
+        # Hämta domänen som ska utgöra del av EPPN
         $ADDNSDomain = (Get-ADDomain).DNSRoot
     }
 
     process {
+
+        # Hämta Guid för användaren
         $curGUID = $ADUser | Get-ADUser -Properties ObjectGuid | Select-Object -ExpandProperty ObjectGuid | Select-Object -ExpandProperty Guid
+
+        # Skapa nytt EPPN för användaren
         $EPPN = $curGUID + '@' + $ADDNSDomain
+
+        # Skriv till AD
         if ( $PSCmdlet.ShouldProcess($($ADUser.sAMAccountName))) {
             Set-ADUser -Identity $ADUser -Replace @{eduPersonPrincipalName=$EPPN}
         }
+        
     }
 
     end {}
