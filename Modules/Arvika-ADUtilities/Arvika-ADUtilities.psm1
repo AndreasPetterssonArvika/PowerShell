@@ -436,6 +436,11 @@ function Get-UniqueADManagers {
 
 }
 
+<#
+Funktionen sätter eduPersonPrincipalName för en användare.
+Värdet baseras på Active Directory-användarens ObjectGuid och
+domänens DNS-namn
+#>
 function New-ADEPPNForADUser {
     [cmdletbinding(SupportsShouldProcess)]
     param (
@@ -447,7 +452,7 @@ function New-ADEPPNForADUser {
     }
 
     process {
-        $curGUID = $ADUser | Get-ADUser -Properties ObjectGuid | Select-Object -ExpandProperty ObjectGuid
+        $curGUID = $ADUser | Get-ADUser -Properties ObjectGuid | Select-Object -ExpandProperty ObjectGuid | Select-Object -ExpandProperty Guid
         $EPPN = $curGUID + '@' + $ADDNSDomain
         if ( $PSCmdlet.ShouldProcess($EPPN)) {
             Set-ADUser -Identity $ADUser -Replace @{eduPersonPrincipalName=$EPPN}
