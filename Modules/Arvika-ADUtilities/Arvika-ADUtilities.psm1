@@ -436,6 +436,28 @@ function Get-UniqueADManagers {
 
 }
 
+function New-ADEPPNForADUser {
+    [cmdletbinding(SupportsShouldProcess)]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)][Microsoft.ActiveDirectory.Management.ADObject]$ADUser
+    )
+
+    begin {
+        $ADDNSDomain = (Get-ADDomain).DNSRoot
+    }
+
+    process {
+        $curUser = $ADUser | Get-ADUser -Properties ObjectGuid
+        $EPPN = $curUser.ObjectGuid + '@' + $ADDNSDomain
+        if ( $PSCmdlet.ShouldProcess($EPPN)) {
+            Set-ADUser -Identity $ADUser -Replace @{eduPersonPrincipalName=$EPPN}
+        }
+    }
+
+    end {}
+}
+
+
 
 Export-ModuleMember Copy-ADAttributesFromUser
 Export-ModuleMember Copy-ADGroupsFromUser
@@ -449,3 +471,4 @@ Export-ModuleMember Find-ADUsersWithOldOrNoLastLogons
 Export-ModuleMember Compare-HashtableKeys
 Export-ModuleMember Get-ImmutableIDForUser
 Export-ModuleMember Get-UniqueADManagers
+Export-ModuleMember New-ADEPPNForADUser
