@@ -447,8 +447,8 @@ function New-ADEPPNForADUser {
     }
 
     process {
-        $curUser = $ADUser | Get-ADUser -Properties ObjectGuid
-        $EPPN = $($curUser.ObjectGuid) + '@' + $ADDNSDomain
+        $curGUID = $ADUser | Get-ADUser -Properties ObjectGuid | Select-Object -ExpandProperty ObjectGuid
+        $EPPN = $curGUID + '@' + $ADDNSDomain
         if ( $PSCmdlet.ShouldProcess($EPPN)) {
             Set-ADUser -Identity $ADUser -Replace @{eduPersonPrincipalName=$EPPN}
         }
