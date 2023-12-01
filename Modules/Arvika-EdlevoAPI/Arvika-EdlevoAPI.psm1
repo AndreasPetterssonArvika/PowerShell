@@ -144,7 +144,8 @@ function Update-EdlevoEmailUsingConfigFile {
 
         # Skapa splat för remote om det behövs
         if ( $directory.RemoteServer) {
-            $RemoteCredential = Get-Credential
+            $directoryName = $directory.Directory
+            $RemoteCredential = Get-Credential -Message "Credentials for directory $directoryName"
             $RemoteSplat = @{
                 RemoteDirectory = $True
                 RemoteServer=$directory.RemoteServer
