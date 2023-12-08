@@ -29,6 +29,9 @@ function Remove-ArvikaOldFiles {
     
 }
 
+<#
+Funktionen raderar gamla filer i undermappar till en angiven mapp
+#>
 function Remove-ArvikaOldFilesInSubfolders {
     [cmdletbinding(SupportsShouldProcess)]
     param (
@@ -41,14 +44,19 @@ function Remove-ArvikaOldFilesInSubfolders {
     Get-ChildItem -LiteralPath $Path -Directory | Select-Object -ExpandProperty $_.fullName | Remove-ArvikaOldFiles -FilePattern $FilePattern -DaysOld $DaysOld -RecurseSubfolders:$RecurseSubfolders -WhatIf:$WhatIfPreference
 }
 
+<#
+Funktionen raderar gamla filer baserat på indata från en konfigurationsfil
+#>
 function Remove-ArvikaOldFilesUsingConfigFile {
     [cmdletbinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)][string]$ConfigFile
     )
 
+    # Läs in konfiguration från fil
     $config = Get-Content -Path $ConfigFile -Encoding utf8 | ConvertFrom-Json
 
+    # För varje avsnitt med filedeletions
     foreach ( $fileDeletion in $config.FileDeletions ) {
         Write-Verbose "Utför borttagningen $($fileDelection.Description)"
 
