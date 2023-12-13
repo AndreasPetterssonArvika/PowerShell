@@ -22,7 +22,7 @@ function Remove-ArvikaOldFiles {
     process {
         # Slå upp filerna och ta bort dem
         Write-Verbose "Tar bort filer i $Path"
-        Get-ChildItem -LiteralPath $Path -Recurse:$RecurseSubfolders | Where-Object { $_.Name -match $FilePattern -and $_.CreationTime -lt $timeCutoff } | Remove-Item -WhatIf:$WhatIfPreference
+        Get-ChildItem -LiteralPath $Path -Recurse:$RecurseSubfolders | Where-Object { ( $_.Name -match $FilePattern ) -and ( $_.CreationTime -lt $timeCutoff ) } | Remove-Item -WhatIf:$WhatIfPreference
     }
 
     end {}
@@ -64,9 +64,9 @@ function Remove-ArvikaOldFilesUsingConfigFile {
         if ( $fileDeletion.Recurse -eq 'TRUE') { $recurse=$true }
 
         if ( $fileDeletion.DeleteIn -eq "Folder" ) {
-            Remove-ArvikaOldFiles -Path $fileDeletion.Path -FilePattern $fileDeletion.FilePattern -RecurseSubfolders:$recurse -WhatIf:$WhatIfPreference
+            Remove-ArvikaOldFiles -Path $fileDeletion.Path -FilePattern $fileDeletion.FilePattern  -DaysOld $fileDeletion.DaysOld -RecurseSubfolders:$recurse -WhatIf:$WhatIfPreference
         } elseif ( $fileDeletion.DeleteIn -eq "Subfolders" ) {
-            Remove-ArvikaOldFilesInSubfolders -Path $fileDeletion.Path -FilePattern $fileDeletion.FilePattern -RecurseSubfolders:$recurse -WhatIf:$WhatIfPreference
+            Remove-ArvikaOldFilesInSubfolders -Path $fileDeletion.Path -FilePattern $fileDeletion.FilePattern -DaysOld $fileDeletion.DaysOld -RecurseSubfolders:$recurse -WhatIf:$WhatIfPreference
         } else {
             Throw "Du måste använda Folder eller Subfolder som värden för DeleteIn"
         }
