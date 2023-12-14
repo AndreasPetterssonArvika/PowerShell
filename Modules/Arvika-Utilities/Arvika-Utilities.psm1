@@ -67,84 +67,32 @@ function Remove-ArvikaOldFilesUsingConfigFile {
     foreach ( $fileDeletion in $config.FileDeletions ) {
         Write-Verbose "Utför borttagningen $($fileDeletion.Description)"
 
-        $recurse=$false
-        if ( $fileDeletion.Recurse -eq 'TRUE') { $recurse=$true }
+        if ( Test-Path -Path $fileDeletion.Path ) {
 
-        if ( $fileDeletion.DeleteIn -eq "Folder" ) {
-            try {
+            $recurse=$false
+            if ( $fileDeletion.Recurse -eq 'TRUE') { $recurse=$true }
+
+            if ( $fileDeletion.DeleteIn -eq "Folder" ) {
+                
                 Remove-ArvikaOldFiles -Path $fileDeletion.Path -FilePattern $fileDeletion.FilePattern  -DaysOld $fileDeletion.DaysOld -RecurseSubfolders:$recurse -WhatIf:$WhatIfPreference
-            } catch [System.Management.Automation.ItemNotFoundException] {
-                # Sökvägen saknas, maila helpdesk med meddelande
-                $mailMessage = @{
-                    Subject= "Sökvägen saknas i filborttagningsskript"
-                    Body = "Sökvägen $path saknas vid körning av skriptet för filborttagning`nSkript: $PSCommandPath"
-                }
-        
-                Send-MailMessage -Encoding UTF8 @MailSplat @mailMessage
-        
-                Write-Error "Fel sökväg"
-        
-            } catch {
-                # Oväntat fel, maila helpdesk med meddelande
-                $myErrorString = ""
-                $errCount = 1
-                foreach ( $item in $error ) {
-                    $errCat = $item.CategoryInfo
-                    $errFull = $item.FullyQualifiedErrorId
-                    $myErrorString = $myErrorString + "Error no $errCount`nCategory`: $errCat`nFQEI`: $errFull"
-                    $errCount += 1
-                }
-                $mailMessage = @{
-                    Subject= "Oväntat fel i filborttagningsskript"
-                    Body = "Ett oväntat fel inträffade vid körningen av filborttagningsskriptet`nSkript: $PSCommandPath`n`n$myErrorString"
-                }
-        
-                Send-MailMessage -Encoding UTF8 @MailSplat @mailMessage
-        
-                Write-Error "Oväntat fel"
-        
-                #$error
-            }
-            
-        } elseif ( $fileDeletion.DeleteIn -eq "Subfolders" ) {
+                
+            } elseif ( $fileDeletion.DeleteIn -eq "Subfolders" ) {
 
-            try {
                 Remove-ArvikaOldFilesInSubfolders -Path $fileDeletion.Path -FilePattern $fileDeletion.FilePattern -DaysOld $fileDeletion.DaysOld -RecurseSubfolders:$recurse -WhatIf:$WhatIfPreference
-            } catch [System.Management.Automation.ItemNotFoundException] {
-                # Sökvägen saknas, maila helpdesk med meddelande
-                $mailMessage = @{
-                    Subject= "Sökvägen saknas i filborttagningsskript"
-                    Body = "Sökvägen saknas vid körning av skriptet för filborttagning`nAvsnitt: $($fileDeletion.Description)`nSaknad sökväg: $($fileDeletion.Path)"
-                }
-        
-                Send-MailMessage -Encoding UTF8 @MailSplat @mailMessage
-        
-                Write-Debug "Sökvägen saknas vid körning av skriptet för filborttagning`nAvsnitt: $($fileDeletion.Description)`nSaknad sökväg: $($fileDeletion.Path)"
-        
-            } catch {
-                # Oväntat fel, maila helpdesk med meddelande
-                $myErrorString = ""
-                $errCount = 1
-                foreach ( $item in $error ) {
-                    $errCat = $item.CategoryInfo
-                    $errFull = $item.FullyQualifiedErrorId
-                    $myErrorString = $myErrorString + "Error no $errCount`nCategory`: $errCat`nFQEI`: $errFull"
-                    $errCount += 1
-                }
-                $mailMessage = @{
-                    Subject= "Oväntat fel i filborttagningsskript"
-                    Body = "Ett oväntat fel inträffade vid körningen av filborttagningsskriptet`nSkript: $PSCommandPath`n`n$myErrorString"
-                }
-        
-                Send-MailMessage -Encoding UTF8 @MailSplat @mailMessage
-        
-                Write-Debug "Oväntat fel"
-        
-                #$error
+
+            } else {
+                Throw "Du måste använda Folder eller Subfolder som värden för DeleteIn"
             }
 
         } else {
-            Throw "Du måste använda Folder eller Subfolder som värden för DeleteIn"
+            
+            Write-Verbose "Saknad sökväg: $($fileDeletion.Path)"
+            $mailMessage = @{
+                Subject= "Filborttagningsskriptet har körts med fel"
+                Body = "Skriptet för filborttagning har körts och en sökväg saknas.`nSaknad sökväg: $($fileDeletion.Path)"
+            }
+
+            Send-MailMessage -Encoding UTF8 @MailSplat @mailMessage
         }
     }
 
