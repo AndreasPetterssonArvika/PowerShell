@@ -1,7 +1,7 @@
 {
     "EdlevoConfigName": "<descriptive name>",
     "EdlevoConfigDescription": "<Text description of config>",
-    "EdlevoOutputDirectory": "<path to file output>",
+    "EdlevoOutputDirectory": "<relative path from module folder to file output >",
     "EdlevoAPI": {
         "Server": "<API Server>",
         "EndPoint": "<Edlevo API Endpoint>",
@@ -16,6 +16,8 @@
         {
             "Directory": "<Descriptive name of directory 1>",
             "RemoteServer": "<Remote server 1 if necessary>",
+            "RemoteUser": "<user with sufficent rights and permissions in directory 1>",
+            "RemotePasswordHash": "<Password hash of the above user>",
             "UserIdentifier": "<User identifier attribute>",
             "MailAttribute": "<mail address attribute>",
             "Searches": [
@@ -32,6 +34,8 @@
         },{
             "Directory": "<Descriptive name of directory 2>",
             "RemoteServer": "<Remote server 2 if necessary>",
+            "RemoteUser": "<user with sufficent rights and permissions in directory 2>",
+            "RemotePasswordHash": "<Password hash of the above user>",
             "UserIdentifier": "<User identifier attribute>",
             "MailAttribute": "<mail address attribute>",
             "Searches": [
