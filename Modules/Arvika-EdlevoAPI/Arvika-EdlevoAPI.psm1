@@ -120,17 +120,22 @@ function Update-EdlevoEmailUsingConfigFile {
     [cmdletbinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)][string]$ConfigFile,
-        [Parameter()][string]$DaysSinceUserChange=1
+        [Parameter()][string]$DaysSinceUserChange=1,
+        [Parameter()][switch]$ManualCredentials
     )
 
     $config = Get-Content -Path $ConfigFile -Encoding utf8 | ConvertFrom-Json
 
     $EdlevoAPIURI = New-EdlevoURI -BaseDomain $config.EdlevoAPI.Domain -APIEndpoint $config.EdlevoAPI.EndPoint -LicenseKey $config.EdlevoAPI.LicenseKey
 
+    # Skapa splat för grundläggande konfiguration.
+    # Notering om OutputDirectory är att $PSScriptRoot räknar från den aktuella
+    # funktionens plats, alltså i det här fallet mappen där modulen ligger
+    # Måste tas hänsyn till i konfigurationen
     $BaseConfigSplat = @{
         EdlevoConfigName = $config.EdlevoConfigName
         EdlevoAPIURI = $EdlevoAPIURI
-        OutputDirectory = $config.EdlevoOutputDirectory
+        OutputDirectory = "$PSScriptRoot\$($config.EdlevoOutputDirectory)"
     }
 
     # Skapa splat för epost
@@ -145,7 +150,19 @@ function Update-EdlevoEmailUsingConfigFile {
         # Skapa splat för remote om det behövs
         if ( $directory.RemoteServer) {
             $directoryName = $directory.Directory
-            $RemoteCredential = Get-Credential -Message "Credentials for directory $directoryName"
+            if ( $ManualCredentials ) {
+                # Switch satt för manuella credentials
+                $RemoteCredential = Get-Credential -Message "Ange credentials för $directoryName"
+            } else {
+                # Credentials från konfigurationsfil
+                $RemoteUser = $directory.RemoteUser
+                $RemotePassword = $directory.RemotePasswordHash | ConvertTo-SecureString
+                $RemoteCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $RemoteUser, $RemotePassword
+                # Ta bort känsliga variabler
+                Remove-Variable RemoteUser
+                Remove-Variable RemotePassword
+            }
+            
             $RemoteSplat = @{
                 RemoteDirectory = $True
                 RemoteServer=$directory.RemoteServer
@@ -171,6 +188,9 @@ function Update-EdlevoEmailUsingConfigFile {
 
             Update-EdlevoEmailFromActiveDirectory @BaseConfigSplat @UpdateSplat @RemoteSplat @MailSplat -WhatIf:$WhatIfPreference
         }
+
+        # Ta bort credential-variabeln
+        Remove-Variable RemoteCredential
     }
 }
 
