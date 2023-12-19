@@ -1111,6 +1111,30 @@ function Get-PCGivenName {
 
 }
 
+function Get-ANCSystemInputLists {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)][string]$InputFile,
+        [Parameter(Mandatory)][string]$UserIdentifier,
+        [Parameter(Mandatory)][string]$GSEBaseOU,
+        [Parameter(Mandatory)][string]$OutfilePrefix,
+        [Parameter()][string]$OutputFolder='.'
+    )
+
+    $now = Get-Date -Format 'yyyyMMdd_HHmm'
+    $UserDocumentOutputFile = $OutputFolder + '\' + $OutfilePrefix + '_userdocuments_' + $now + '.csv'
+    $ItsLearningOutputFile = $OutputFolder + '\' + $OutfilePrefix + '_itslearning_' + $now + '.csv'
+    $GSEOutputFile = $OutputFolder + '\' + 'All_GSEUsers_' + $now + '.csv'
+
+    Get-ANCUsersFromIDList -IDListPath $InputFile -UserIdentifier $UserIdentifier -OutFile $UserDocumentOutputFile
+
+    Get-ANCItsLearningUsersFromIDList -IDListPath $InputFile -UserIdentifier $UserIdentifier -OutFile $ItsLearningOutputFile
+
+    Get-ANCGSEUsers -BaseOU $GSEBaseOU -OutFile $GSEOutputFile
+
+
+}
+
 <#
 
 Exporterar en lista som underlag för ANC:s ansvarsförbindelser
@@ -1122,21 +1146,19 @@ Resultatet av kontrollen lagras i en fil som kan anges som indata
 function Get-ANCUsersFromIDList {
     [cmdletbinding()]
     param (
-        [string][Parameter(Mandatory)]$OldIDListPath,
+        [string][Parameter(Mandatory)]$IDListPath,
         [string][Parameter(Mandatory)]$UserIdentifier,
-        [string][Parameter(Mandatory)]$OldUserIdentifier,
         [string][Parameter(Mandatory)]$OutFile
     )
 
     # Hämta lista med identifierare
-    $OldIDList = Import-Csv -Path $OldIDListPath -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
+    $IDList = Import-Csv -Path $IDListPath -Delimiter ';' | Select-Object -ExpandProperty $UserIdentifier
 
     "$UserIdentifier;SN;givenName;sAMAccountName;displayName;password" | Out-File -FilePath $OutFile
 
     $attributes = @($UserIdentifier,'SN','givenName','sAMAccountName','displayName','extensionAttribute1')
 
-    foreach ( $OldID in $OldIDList ) {
-        $UID = ConvertTo-IDKey12 -IDKey11 $OldID
+    foreach ( $UID in $IDList ) {
         $ldapfilter = "($UserIdentifier=$UID)"
         $curUser = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
         $curUserMail = $curUser.extensionAttribute1
@@ -1157,14 +1179,13 @@ baserat på deras prefix.
 function Get-ANCItsLearningUsersFromIDList {
     [cmdletbinding()]
     param (
-        [string][Parameter(Mandatory)]$OldIDListPath,
+        [string][Parameter(Mandatory)]$IDListPath,
         [string][Parameter(Mandatory)]$UserIdentifier,
-        [string][Parameter(Mandatory)]$OldUserIdentifier,
         [string][Parameter(Mandatory)]$OutFile
     )
 
     # Hämta lista med identifierare
-    $OldIDList = Import-Csv -Path $OldIDListPath -Delimiter ';' | Select-Object -ExpandProperty $OldUserIdentifier
+    $IDList = Import-Csv -Path $IDListPath -Delimiter ';' | Select-Object -ExpandProperty $UserIdentifier
 
     # Sätt rubriker för exportfilen
     "Efternamn;Förnamn;Användarnamn;Lösenord;E-postadress" | Out-File -FilePath $OutFile -Encoding utf8
@@ -1172,8 +1193,7 @@ function Get-ANCItsLearningUsersFromIDList {
     # Attributen som behövs. extensionAttribute1 är mailadressen för arvika.com
     $attributes = @('SN','givenName','extensionAttribute1')
 
-    foreach ( $OldID in $OldIDList ) {
-        $UID = ConvertTo-IDKey12 -IDKey11 $OldID
+    foreach ( $UID in $IDList ) {
         $ldapfilter = "($UserIdentifier=$UID)"
         $curUser = Get-ADUser -LDAPFilter $ldapfilter -Properties $attributes
 
@@ -1378,6 +1398,7 @@ function Get-ANCUserDocsList {
 
 Export-ModuleMember -Function Update-ANCVUXElever
 Export-ModuleMember -Function Get-ANCLCUserList
+Export-ModuleMember -Function Get-ANCSystemInputLists
 
 #<#
 # Export av alla funktioner för testning
