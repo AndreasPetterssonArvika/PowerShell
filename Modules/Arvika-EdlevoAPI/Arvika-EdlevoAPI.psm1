@@ -288,7 +288,7 @@ function Update-EdlevoEmailFromActiveDirectory {
         New-FailedUpdateFile -FailedUpdates $failedUpdates -OutputDirectory $OutputDirectory -UserIdentifier $UserIdentifier -MailAttribute $MailAttribute -EdlevoConfigName $EdlevoConfigName -SearchName $SearchName
 
         # Maila helpdesk
-        #Send-MailMessage -SmtpServer $SmtpServer -From $FromMail -To $ToMail -Subject 'Uppdateringen misslyckades' -Body 'Minst ett fel uppstod vid återskrivning av epost-adresser mot Edlevo' -Encoding utf8
+        Send-MailMessage -SmtpServer $SmtpServer -From $FromMail -To $ToMail -Subject 'Uppdateringen misslyckades' -Body 'Minst ett fel uppstod vid återskrivning av epost-adresser mot Edlevo' -Encoding utf8
 
     }
 }
