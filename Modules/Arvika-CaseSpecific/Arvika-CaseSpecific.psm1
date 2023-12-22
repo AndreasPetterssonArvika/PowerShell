@@ -365,8 +365,31 @@ function Update-MIMStartHomeDirectory {
 
 }
 
+<#
+Funktionen tar emot ADUsers från pipeline
+De som har bytt lösenord efter det angivna klockslaget skickas vidare
+#>
+function Test-ADUserChangedPwdAfterTime {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,ValueFromPipeline)][Microsoft.ActiveDirectory.Management.ADPrincipal]$ADUser,
+        [Parameter(Mandatory)][datetime]$TimeCutoff
+    )
+
+    begin {}
+
+    process {
+        
+        Get-ADUser -Identity $ADUser -Properties PasswordLastSet | ForEach-Object { if ( $($_.PasswordlastSet) -ge $TimeCutoff) { Write-Output $_ } }
+    }
+
+    end {}
+
+}
+
 Export-ModuleMember -Function Get-SVUserData
 Export-ModuleMember -Function Get-MIMStartNewUsers
 Export-ModuleMember -Function Set-MIMStartForwarding
 Export-ModuleMember -Function Add-MIMStartUsersToGroups
 Export-ModuleMember -Function Update-MIMStartUserHomeDirectories
+Export-ModuleMember -Function Test-ADUserChangedPwdAfterTime
