@@ -17,6 +17,9 @@ $data = Import-Csv -LiteralPath '.\dummyfilethatdoesntexist.csv'
 # Den här raden hämtar det senaste felet
 $Error[0]
 
+# Den här raden hämtar Exception-objektet för det senaste felet
+$Error[0].Exception
+
 # Den här raden hämtar den typ av Exception som det resulterade i
 # Detta kan användas för att fånga upp förutsägbara fel på ett bra sätt
 $Error[0].Exception.GetType().FullName
@@ -50,12 +53,14 @@ try {
 <#
 Man kan också skapa egna Exceptions med Throw
 Enklaste formen ses i följande funktion
+En sån här Exception är av typen: System.Management.Automation.RuntimeException
 #>
 function New-UserCreatedException {
     Throw "Min egen Exception"
 }
 
 New-UserCreatedException
+$Error[0].Exception.GetType().FullName
 
 <#
 Du kan också skapa Exceptions av någon systemdefinierad klass
@@ -66,3 +71,56 @@ function New-FileNotFoundException {
 }
 
 New-FileNotFoundException
+$Error[0].Exception.GetType().FullName
+
+<#
+Vill man ha det mer detaljerat kan man stoppa in mer data
+i en Exception än bara meddelandet
+#>
+function New-RuntimeExceptionWithData {
+    $ErrorMessage = 'Min Exception'
+    $myException = [System.Management.Automation.RuntimeException]::new($ErrorMessage)
+    $myException.Data.Add('ErrorCode',1234)
+    $myException.Data.Add('AdditionalData','Mer data från min Exception')
+    
+    throw $myException
+}
+
+try {
+    New-ExceptionWithData
+} catch {
+    $ExceptionType = $Error[0].Exception.GetType().FullName
+    $ErrorMessage = $Error[0].Exception.Message
+    $ErrorCode = $Error[0].Exception.Data.ErrorCode
+    $AdditionalData = $Error[0].Exception.Data.AdditionalData
+    Write-Output "Typ av undantag: $ExceptionType"
+    Write-Output "Felmeddelande: $ErrorMessage"
+    Write-Output "Felkod: $ErrorCode"
+    Write-Output "Ytterligare data: $AdditionalData"
+}
+
+<#
+Vid behov kan man till sist skapa en egen klass av Exceptions
+om det skulle behövas
+#>
+class CustomException : Exception {
+    [int32]$ErrorCode
+    [string]$AdditionalMessage
+
+    CustomException($Message,$ErrorCode,$AdditionalMessage) : base($Message) {
+        $this.ErrorCode = $ErrorCode
+        $this.AdditionalMessage = $AdditionalMessage
+    }
+}
+
+function New-CustomException {
+    $myException = New-Object System.IO.FileNotFoundException
+    Throw [CustomException]::new('Message',1234,'Extra meddelande')
+}
+
+try {
+    New-CustomException
+} catch [CustomException] {
+    $curException = $Error[0].Exception
+    $curException
+}
