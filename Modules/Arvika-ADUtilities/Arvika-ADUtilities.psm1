@@ -276,17 +276,63 @@ function New-ADUserFolderMappingScript {
 
 }
 
+<#
+Funktionen hämtar antalet matchningar för ett användarnamn
+Funktionen kan göra kontrollen mot en remote server
+Funktionen kan göra sökningen även mot Exchange-attribut
+#>
 function Find-ADUsername {
     [cmdletbinding()]
     param (
-        [Parameter(Mandatory)][string]$UserName,
-        [Parameter()][switch]$ShowMatches
+        [Parameter(Mandatory,ParameterSetName='LocalDirectory')][string]
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $UserName,
+
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $RemoteServer,
+
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][pscredential]
+        $RemoteCred,
+
+        [Parameter()][switch]$ShowMatches,
+
+        [Parameter()][switch]$SearchExchangeAttributes
     )
 
-    $ldapfilter = "(|(name=$UserName)(sAMAccountName=$UserName)(cn=$UserName)(mailNickname=$UserName)(proxyAddresses=*$UserName*))"
+    if ( $SearchExchangeAttributes ) {
+        $attributes=@('cn','mailNickname','proxyAddresses','mail','targetAddress')
+        $ldapfilter = "(|(name=$UserName)(sAMAccountName=$UserName)(cn=$UserName)(proxyAddresses=*$UserName*)(mail=$UserName*)(mailNickname=$UserName)(targetAddress=*$UserName*))"
+    } else {
+        $attributes=@('cn','proxyAddresses','mail')
+        $ldapfilter = "(|(name=$UserName)(sAMAccountName=$UserName)(cn=$UserName)(proxyAddresses=*$UserName*)(mail=$UserName*))"
+    }
+
     Write-Verbose "`nSearching for username $UserName"
     Write-Debug "LDAP filter for search: $ldapfilter"
-    $matches = Get-ADUser -LDAPFilter $ldapfilter -Properties cn,mailNickname,proxyAddresses
+
+    if ( $RemoteServer ) {
+        $SearchSplat = @{
+            LDAPFilter=$ldapfilter
+            Properties=$attributes
+            Server=$RemoteServer
+            Credential=$RemoteCred
+        }
+    } else {
+        $SearchSplat = @{
+            LDAPFilter=$ldapfilter
+            Properties=$attributes
+        }
+    }
+
+    try {
+        $matches = Get-ADUser @SearchSplat
+    } catch [System.ArgumentException] {
+        $exceptionMessage=$Error[0].Exception.Message
+        if ( 'One or more properties are invalid' -match $exceptionMessage ) {
+            Throw 'Exchange attributes not present in directory'
+        }
+    }
+    
     
     $numMatches = $matches | Measure-Object | Select-Object -ExpandProperty count
 
@@ -315,6 +361,14 @@ function Find-ADUsername {
                 if ( $user.proxyAddresses -match $UserName ) {
                     $outString = $user.proxyAddresses
                     Write-Output "Found proxyAddresses: $outString"
+                }
+                if ( $user.mail -match $UserName ) {
+                    $outString = $user.mail
+                    Write-Output "Found mail: $outString"
+                }
+                if ( $user.targetAddress -match $UserName ) {
+                    $outString = $user.targetAddress
+                    Write-Output "Found targetAddress: $outString"
                 }
             }
 
