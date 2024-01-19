@@ -382,6 +382,102 @@ function Find-ADUsername {
 }
 
 <#
+Funktionen skapar ett användarnamn på formen fornamn.efternamn
+Funktionen hanterar dubletter genom en siffra direkt efter förnamnet
+
+#>
+function New-ADUsername {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,ParameterSetName='LocalDirectory')][string]
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $GivenName,
+
+        [Parameter(Mandatory,ParameterSetName='LocalDirectory')][string]
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $SN,
+
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $Server,
+
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][pscredential]
+        $Credential,
+
+        [Parameter()][int32]
+        $DuplicateNumber
+    )
+
+    $MAX_DUPLICATE_USERNAMES = 10
+
+    # Ge upp om det blivit för många dubletter
+    if ( $DuplicateNumber -ge $MAX_DUPLICATE_USERNAMES ) {
+        $errorMessage = 'Too many duplicate names'
+        Throw $errorMessage
+    }
+
+    $proposedName = $GivenName.ToLower()
+
+    if ( $DuplicateNumber -eq 0 ) {
+        $proposedName = $proposedName + '.' + $SN.ToLower()
+    } else {
+        $proposedName = $proposedName + $DuplicateNumber + '.' + $SN.ToLower()
+    }
+
+    # Rensa svenska tecken
+
+    $proposedName = ConvertTo-AlfaNumeric -myString $proposedName
+
+    # Kontrollera namnet
+    $numberOfUsersFound = Find-ADUsername -UserName $proposedName -RemoteCred $RemoteCred -RemoteServer $RemoteServer
+    if ( $numberOfUsersFound -ge 1 ) {
+        # Namnet finns, dubletthantera
+
+        Write-Debug 'Dublett hittad'
+        $DuplicateNumber += 1
+        $resultName = New-ADUsername -Credential $Credential -Server $Server -GivenName $GivenName -SN $SN -DuplicateNumber $DuplicateNumber
+    } else {
+        $resultName = $proposedName
+    }
+
+    return $resultName
+
+}
+
+
+function ConvertTo-AlfaNumeric {
+    [cmdletbinding()]
+    param(
+        [Parameter(Mandatory,ValueFromPipeline)][string]$myString
+    )
+
+    # Byt ut icke alfanumeriska tecken
+    $myString = $myString -replace '[^\p{L}\p{Nd}]', ''
+
+    # Byt ut diverse diakritiska tecken
+    # creplace är case sensitive
+    $myString = $myString -creplace '[\u00C0-\u00C6]','A'
+    $myString = $myString -creplace '[\u00E0-\u00E6]','a'
+    $myString = $myString -creplace '[\u00C7]','C'
+    $myString = $myString -creplace '[\u00E7]','c'
+    $myString = $myString -creplace '[\u00C8-\u00CB]','E'
+    $myString = $myString -creplace '[\u00E8-\u00EB]','e'
+    $myString = $myString -creplace '[\u00CC-\u00CF]','E'
+    $myString = $myString -creplace '[\u00EC-\u00EF]','e'
+    $myString = $myString -creplace '[\u00D0]','D'
+    $myString = $myString -creplace '[\u00F0]','d'
+    $myString = $myString -creplace '[\u00D1]','N'
+    $myString = $myString -creplace '[\u00F1]','n'
+    $myString = $myString -creplace '[\u00D2-\u00D8]','O'
+    $myString = $myString -creplace '[\u00F2-\u00F8]','o'
+    $myString = $myString -creplace '[\u00D9-\u00DC]','U'
+    $myString = $myString -creplace '[\u00F9-\u00FC]','u'
+    $myString = $myString -creplace '[\u00DD]','Y'
+    $myString = $myString -creplace '[\u00FD]','y'
+
+    return $myString
+}
+
+<#
 Funktionen tar emot användare och kontrollerar deras lastLogonTimestamp
 Om den är äldre än deat angina antalet dagar eller tom, skickas denna
 användare vidare till pipeline.
