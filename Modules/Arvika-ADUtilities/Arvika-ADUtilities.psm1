@@ -404,10 +404,14 @@ function New-ADUsername {
         $Credential,
 
         [Parameter()][int32]
-        $DuplicateNumber
+        $DuplicateNumber=0
     )
 
     $MAX_DUPLICATE_USERNAMES = 10
+
+    # Rensa tecken som inte fungerar i användarnamn
+    $GivenName = ConvertTo-AlfaNumeric -myString $GivenName
+    $SN = ConvertTo-AlfaNumeric -myString $SN
 
     # Ge upp om det blivit för många dubletter
     if ( $DuplicateNumber -ge $MAX_DUPLICATE_USERNAMES ) {
@@ -423,12 +427,8 @@ function New-ADUsername {
         $proposedName = $proposedName + $DuplicateNumber + '.' + $SN.ToLower()
     }
 
-    # Rensa svenska tecken
-
-    $proposedName = ConvertTo-AlfaNumeric -myString $proposedName
-
     # Kontrollera namnet
-    $numberOfUsersFound = Find-ADUsername -UserName $proposedName -RemoteCred $RemoteCred -RemoteServer $RemoteServer
+    $numberOfUsersFound = Find-ADUsername -UserName $proposedName -RemoteCred $Credential -RemoteServer $Server
     if ( $numberOfUsersFound -ge 1 ) {
         # Namnet finns, dubletthantera
 
@@ -635,3 +635,4 @@ Export-ModuleMember Compare-HashtableKeys
 Export-ModuleMember Get-ImmutableIDForUser
 Export-ModuleMember Get-UniqueADManagers
 Export-ModuleMember New-ADEPPNForADUser
+Export-ModuleMember New-ADUsername
