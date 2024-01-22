@@ -276,17 +276,63 @@ function New-ADUserFolderMappingScript {
 
 }
 
+<#
+Funktionen hämtar antalet matchningar för ett användarnamn
+Funktionen kan göra kontrollen mot en remote server
+Funktionen kan göra sökningen även mot Exchange-attribut
+#>
 function Find-ADUsername {
     [cmdletbinding()]
     param (
-        [Parameter(Mandatory)][string]$UserName,
-        [Parameter()][switch]$ShowMatches
+        [Parameter(Mandatory,ParameterSetName='LocalDirectory')][string]
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $UserName,
+
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $RemoteServer,
+
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][pscredential]
+        $RemoteCred,
+
+        [Parameter()][switch]$ShowMatches,
+
+        [Parameter()][switch]$SearchExchangeAttributes
     )
 
-    $ldapfilter = "(|(name=$UserName)(sAMAccountName=$UserName)(cn=$UserName)(mailNickname=$UserName)(proxyAddresses=*$UserName*))"
+    if ( $SearchExchangeAttributes ) {
+        $attributes=@('cn','mailNickname','proxyAddresses','mail','targetAddress')
+        $ldapfilter = "(|(name=$UserName)(sAMAccountName=$UserName)(cn=$UserName)(proxyAddresses=*$UserName*)(mail=$UserName*)(mailNickname=$UserName)(targetAddress=*$UserName*))"
+    } else {
+        $attributes=@('cn','proxyAddresses','mail')
+        $ldapfilter = "(|(name=$UserName)(sAMAccountName=$UserName)(cn=$UserName)(proxyAddresses=*$UserName*)(mail=$UserName*))"
+    }
+
     Write-Verbose "`nSearching for username $UserName"
     Write-Debug "LDAP filter for search: $ldapfilter"
-    $matches = Get-ADUser -LDAPFilter $ldapfilter -Properties cn,mailNickname,proxyAddresses
+
+    if ( $RemoteServer ) {
+        $SearchSplat = @{
+            LDAPFilter=$ldapfilter
+            Properties=$attributes
+            Server=$RemoteServer
+            Credential=$RemoteCred
+        }
+    } else {
+        $SearchSplat = @{
+            LDAPFilter=$ldapfilter
+            Properties=$attributes
+        }
+    }
+
+    try {
+        $matches = Get-ADUser @SearchSplat
+    } catch [System.ArgumentException] {
+        $exceptionMessage=$Error[0].Exception.Message
+        if ( 'One or more properties are invalid' -match $exceptionMessage ) {
+            Throw 'Exchange attributes not present in directory'
+        }
+    }
+    
     
     $numMatches = $matches | Measure-Object | Select-Object -ExpandProperty count
 
@@ -316,6 +362,14 @@ function Find-ADUsername {
                     $outString = $user.proxyAddresses
                     Write-Output "Found proxyAddresses: $outString"
                 }
+                if ( $user.mail -match $UserName ) {
+                    $outString = $user.mail
+                    Write-Output "Found mail: $outString"
+                }
+                if ( $user.targetAddress -match $UserName ) {
+                    $outString = $user.targetAddress
+                    Write-Output "Found targetAddress: $outString"
+                }
             }
 
         } else {
@@ -325,6 +379,102 @@ function Find-ADUsername {
 
     return $numMatches
 
+}
+
+<#
+Funktionen skapar ett användarnamn på formen fornamn.efternamn
+Funktionen hanterar dubletter genom en siffra direkt efter förnamnet
+
+#>
+function New-ADUsername {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,ParameterSetName='LocalDirectory')][string]
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $GivenName,
+
+        [Parameter(Mandatory,ParameterSetName='LocalDirectory')][string]
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $SN,
+
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][string]
+        $Server,
+
+        [Parameter(Mandatory,ParameterSetName='RemoteDirectory')][pscredential]
+        $Credential,
+
+        [Parameter()][int32]
+        $DuplicateNumber=0
+    )
+
+    $MAX_DUPLICATE_USERNAMES = 10
+
+    # Rensa tecken som inte fungerar i användarnamn
+    $GivenName = ConvertTo-AlfaNumeric -myString $GivenName
+    $SN = ConvertTo-AlfaNumeric -myString $SN
+
+    # Ge upp om det blivit för många dubletter
+    if ( $DuplicateNumber -ge $MAX_DUPLICATE_USERNAMES ) {
+        $errorMessage = 'Too many duplicate names'
+        Throw $errorMessage
+    }
+
+    $proposedName = $GivenName.ToLower()
+
+    if ( $DuplicateNumber -eq 0 ) {
+        $proposedName = $proposedName + '.' + $SN.ToLower()
+    } else {
+        $proposedName = $proposedName + $DuplicateNumber + '.' + $SN.ToLower()
+    }
+
+    # Kontrollera namnet
+    $numberOfUsersFound = Find-ADUsername -UserName $proposedName -RemoteCred $Credential -RemoteServer $Server
+    if ( $numberOfUsersFound -ge 1 ) {
+        # Namnet finns, dubletthantera
+
+        Write-Debug 'Dublett hittad'
+        $DuplicateNumber += 1
+        $resultName = New-ADUsername -Credential $Credential -Server $Server -GivenName $GivenName -SN $SN -DuplicateNumber $DuplicateNumber
+    } else {
+        $resultName = $proposedName
+    }
+
+    return $resultName
+
+}
+
+
+function ConvertTo-AlfaNumeric {
+    [cmdletbinding()]
+    param(
+        [Parameter(Mandatory,ValueFromPipeline)][string]$myString
+    )
+
+    # Byt ut icke alfanumeriska tecken
+    $myString = $myString -replace '[^\p{L}\p{Nd}]', ''
+
+    # Byt ut diverse diakritiska tecken
+    # creplace är case sensitive
+    $myString = $myString -creplace '[\u00C0-\u00C6]','A'
+    $myString = $myString -creplace '[\u00E0-\u00E6]','a'
+    $myString = $myString -creplace '[\u00C7]','C'
+    $myString = $myString -creplace '[\u00E7]','c'
+    $myString = $myString -creplace '[\u00C8-\u00CB]','E'
+    $myString = $myString -creplace '[\u00E8-\u00EB]','e'
+    $myString = $myString -creplace '[\u00CC-\u00CF]','E'
+    $myString = $myString -creplace '[\u00EC-\u00EF]','e'
+    $myString = $myString -creplace '[\u00D0]','D'
+    $myString = $myString -creplace '[\u00F0]','d'
+    $myString = $myString -creplace '[\u00D1]','N'
+    $myString = $myString -creplace '[\u00F1]','n'
+    $myString = $myString -creplace '[\u00D2-\u00D8]','O'
+    $myString = $myString -creplace '[\u00F2-\u00F8]','o'
+    $myString = $myString -creplace '[\u00D9-\u00DC]','U'
+    $myString = $myString -creplace '[\u00F9-\u00FC]','u'
+    $myString = $myString -creplace '[\u00DD]','Y'
+    $myString = $myString -creplace '[\u00FD]','y'
+
+    return $myString
 }
 
 <#
@@ -485,3 +635,4 @@ Export-ModuleMember Compare-HashtableKeys
 Export-ModuleMember Get-ImmutableIDForUser
 Export-ModuleMember Get-UniqueADManagers
 Export-ModuleMember New-ADEPPNForADUser
+Export-ModuleMember New-ADUsername
