@@ -1126,9 +1126,12 @@ function Get-ANCSystemInputLists {
     $ItsLearningOutputFile = $OutputFolder + '\' + $OutfilePrefix + '_itslearning_' + $now + '.csv'
     $GSEOutputFile = $OutputFolder + '\' + 'All_GSEUsers_' + $now + '.csv'
 
-    Get-ANCUsersFromIDList -IDListPath $InputFile -UserIdentifier $UserIdentifier -OutFile $UserDocumentOutputFile
+    # Skapa liste med användaridentifierare
+    $UserIDList = $IDList = Import-Csv -Path $InputFile -Delimiter ';' | Select-Object -ExpandProperty $UserIdentifier | ForEach-Object { ConvertTo-IDKey12 -IDKey11 $_ }
 
-    Get-ANCItsLearningUsersFromIDList -IDListPath $InputFile -UserIdentifier $UserIdentifier -OutFile $ItsLearningOutputFile
+    Get-ANCUsersFromIDList -IDList $UserIDList -UserIdentifier $UserIdentifier -OutFile $UserDocumentOutputFile
+
+    Get-ANCItsLearningUsersFromIDList -IDList $UserIDList -UserIdentifier $UserIdentifier -OutFile $ItsLearningOutputFile
 
     Get-ANCGSEUsers -BaseOU $GSEBaseOU -OutFile $GSEOutputFile
 
@@ -1146,13 +1149,10 @@ Resultatet av kontrollen lagras i en fil som kan anges som indata
 function Get-ANCUsersFromIDList {
     [cmdletbinding()]
     param (
-        [string][Parameter(Mandatory)]$IDListPath,
-        [string][Parameter(Mandatory)]$UserIdentifier,
-        [string][Parameter(Mandatory)]$OutFile
+        [Parameter(Mandatory)][string[]]$IDList,
+        [Parameter(Mandatory)][string]$UserIdentifier,
+        [Parameter(Mandatory)][string]$OutFile
     )
-
-    # Hämta lista med identifierare
-    $IDList = Import-Csv -Path $IDListPath -Delimiter ';' | Select-Object -ExpandProperty $UserIdentifier
 
     "$UserIdentifier;SN;givenName;sAMAccountName;displayName;password" | Out-File -FilePath $OutFile
 
@@ -1179,13 +1179,10 @@ baserat på deras prefix.
 function Get-ANCItsLearningUsersFromIDList {
     [cmdletbinding()]
     param (
-        [string][Parameter(Mandatory)]$IDListPath,
-        [string][Parameter(Mandatory)]$UserIdentifier,
-        [string][Parameter(Mandatory)]$OutFile
+        [Parameter(Mandatory)][string[]]$IDList,
+        [Parameter(Mandatory)][string]$UserIdentifier,
+        [Parameter(Mandatory)][string]$OutFile
     )
-
-    # Hämta lista med identifierare
-    $IDList = Import-Csv -Path $IDListPath -Delimiter ';' | Select-Object -ExpandProperty $UserIdentifier
 
     # Sätt rubriker för exportfilen
     "Efternamn;Förnamn;Användarnamn;Lösenord;E-postadress" | Out-File -FilePath $OutFile -Encoding utf8
